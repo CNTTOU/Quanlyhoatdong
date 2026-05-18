@@ -25,7 +25,8 @@ import { getStatsForYear } from './utils/yearData';
 
 export default function App() {
   const [selectedYear, setSelectedYear] = useState(2026);
-  const [currentPage, setCurrentPage] = useState('dashboard');
+  const [currentPage, setCurrentPage] = useState('featured');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   const renderDashboard = () => {
     const stats = getStatsForYear(selectedYear);
@@ -103,12 +104,17 @@ export default function App() {
     );
   };
 
+  const handleLoginSuccess = () => {
+    setIsLoggedIn(true);
+    setCurrentPage('dashboard');
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
-      {currentPage !== 'featured' && <Sidebar activePage={currentPage} onPageChange={setCurrentPage} />}
-      {currentPage !== 'featured' && <Header />}
+      {currentPage !== 'featured' && isLoggedIn && <Sidebar activePage={currentPage} onPageChange={setCurrentPage} />}
+      {currentPage !== 'featured' && isLoggedIn && <Header />}
 
-      <main className={currentPage !== 'featured' ? 'ml-64 pt-16' : ''}>
+      <main className={currentPage !== 'featured' && isLoggedIn ? 'ml-64 pt-16' : ''}>
         {currentPage === 'dashboard' && renderDashboard()}
 
         {currentPage === 'activities' && (
@@ -129,7 +135,7 @@ export default function App() {
 
         {currentPage === 'calendar' && <CalendarPage />}
 
-        {currentPage === 'featured' && <FeaturedActivitiesPage />}
+        {currentPage === 'featured' && <FeaturedActivitiesPage onLoginSuccess={handleLoginSuccess} />}
 
         {currentPage === 'report-builder' && <ReportBuilderPage />}
 

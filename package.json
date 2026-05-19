@@ -8,6 +8,8 @@
     "dev": "vite",
     "bootstrap:admin": "node --env-file=.env scripts/bootstrapAdmin.mjs",
     "seed:firestore": "node scripts/seedFirestore.ts",
+    "seed:unit-types": "node --env-file=.env scripts/seedUnitTypes.mjs",
+    "delete:thiet-ke-csdl": "node scripts/deleteDatabaseDesignCollection.mjs",
     "deploy:rules": "npx firebase-tools deploy --only firestore:rules",
     "deploy:rules:bootstrap": "npx firebase-tools deploy --config firebase.bootstrap.json --only firestore:rules --project quanlyhoatdong-278e0"
   },

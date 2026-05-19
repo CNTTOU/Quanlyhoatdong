@@ -40,9 +40,6 @@ const ReportPage = lazy(() =>
 const SettingsPage = lazy(() =>
   import('@/pages/SettingsPage').then((module) => ({ default: module.SettingsPage })),
 );
-const UnitsPage = lazy(() =>
-  import('@/pages/UnitsPage').then((module) => ({ default: module.UnitsPage })),
-);
 
 function PageLoading() {
   return (
@@ -85,7 +82,6 @@ export function AppRoutes() {
           <Route path={paths.approval} element={<ProtectedRoute requiredPermissions={['duyet_hoat_dong']}><ApprovalPage /></ProtectedRoute>} />
           <Route path={paths.reports} element={<ProtectedRoute anyPermissions={['xem_bao_cao', 'tao_bao_cao']}><ReportPage /></ProtectedRoute>} />
           <Route path={paths.reportBuilder} element={<ProtectedRoute requiredPermissions={['tao_bao_cao']}><ReportBuilderPage /></ProtectedRoute>} />
-          <Route path={paths.units} element={<ProtectedRoute requiredPermissions={['quan_ly_don_vi']}><UnitsPage /></ProtectedRoute>} />
           <Route path={paths.settings} element={<ProtectedRoute requiredPermissions={['cai_dat_he_thong']}><SettingsPage /></ProtectedRoute>} />
           <Route path={paths.archive} element={<ProtectedRoute anyPermissions={['tao_goi_luu_tru', 'xoa_du_lieu_nam_hoc']}><ArchivePage /></ProtectedRoute>} />
           <Route path={paths.calendar} element={<ProtectedRoute requiredPermissions={['xem_hoat_dong']}><CalendarPage /></ProtectedRoute>} />

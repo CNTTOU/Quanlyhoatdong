@@ -7,7 +7,6 @@ export const paths = {
   approval: '/approval',
   reports: '/reports',
   reportBuilder: '/report-builder',
-  units: '/units',
   settings: '/settings',
   archive: '/archive',
   calendar: '/calendar',

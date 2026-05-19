@@ -5,7 +5,6 @@ import {
   Database,
   CheckSquare,
   BarChart3,
-  Building2,
   Settings,
   Award,
   FileEdit,
@@ -24,7 +23,6 @@ export const navigationItems: NavigationItem[] = [
   { id: 'approval', icon: CheckSquare, label: 'Duyệt hoạt động', path: paths.approval, requiredPermissions: ['duyet_hoat_dong'] },
   { id: 'reports', icon: BarChart3, label: 'Thống kê báo cáo', path: paths.reports, anyPermissions: ['xem_bao_cao', 'tao_bao_cao'] },
   { id: 'report-builder', icon: FileEdit, label: 'Tạo báo cáo', path: paths.reportBuilder, requiredPermissions: ['tao_bao_cao'] },
-  { id: 'units', icon: Building2, label: 'Đơn vị', path: paths.units, requiredPermissions: ['quan_ly_don_vi'] },
   { id: 'archive', icon: Archive, label: 'Lưu trữ năm học', path: paths.archive, anyPermissions: ['tao_goi_luu_tru', 'xoa_du_lieu_nam_hoc'] },
   { id: 'settings', icon: Settings, label: 'Cài đặt', path: paths.settings, requiredPermissions: ['cai_dat_he_thong'] },
 ];

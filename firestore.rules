@@ -66,6 +66,11 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /loai_don_vi/{id} {
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
+    }
+
     match /nam_hoc/{id} {
       allow read: if isActiveUser();
       allow write: if isAdmin();

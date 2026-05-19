@@ -2,9 +2,7 @@ import { doc, serverTimestamp, setDoc, Timestamp } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase.ts';
 import { ACTIVITY_TYPES, PERMISSIONS, ROLE_PERMISSIONS, ROLES, UNITS } from '../constants/seedData.ts';
 import {
-  DATABASE_COLLECTION_DESIGNS,
   DEFAULT_REPORT_TEMPLATES,
-  NORMALIZED_VALUE_GROUPS,
 } from '../constants/databaseDesign.ts';
 import { INTERFACE_DISPLAY_SEED_DOCS, PUBLIC_FEATURED_DATA } from '../constants/interfaceSeedData.ts';
 import { addLog } from './auditLogService.ts';
@@ -127,44 +125,6 @@ export async function seedSystemSettings() {
   );
 }
 
-export async function seedDatabaseDesign() {
-  await setDoc(
-    doc(db, 'thiet_ke_csdl', 'tong_quan'),
-    {
-      ten_tai_lieu: 'Thiết kế cơ sở dữ liệu Firebase Firestore',
-      ten_he_thong: 'Hệ thống Quản lý và Lưu trữ hoạt động Đoàn - Hội',
-      phien_ban: 'Firebase Auth + Cloud Firestore + Google Drive/Cloudflare R2',
-      nguyen_tac: [
-        'Firebase Auth dùng để xác thực đăng nhập.',
-        'Không cho phép đăng ký công khai; chỉ admin tạo tài khoản nội bộ.',
-        'Firestore chỉ lưu dữ liệu chữ, số, trạng thái, metadata và URL file.',
-        'Ảnh, video, file Word/PDF/Excel lưu trên Google Drive hoặc Cloudflare R2.',
-        'Dữ liệu nghiệp vụ được phân theo nam_hoc để phục vụ khóa, lưu trữ và xóa dữ liệu online năm cũ.',
-        'Các thao tác quan trọng phải ghi vào nhat_ky_he_thong.',
-      ],
-      danh_sach_collection: DATABASE_COLLECTION_DESIGNS.map((item) => item.ma_collection),
-      nhom_gia_tri_chuan_hoa: NORMALIZED_VALUE_GROUPS,
-      ngay_cap_nhat: serverTimestamp(),
-    },
-    { merge: true },
-  );
-
-  await Promise.all(
-    DATABASE_COLLECTION_DESIGNS.map((collectionDesign, index) =>
-      setDoc(
-        doc(db, 'thiet_ke_csdl', collectionDesign.ma_collection),
-        {
-          ...collectionDesign,
-          thu_tu: index + 1,
-          tong_so_truong: collectionDesign.truong.length,
-          ngay_cap_nhat: serverTimestamp(),
-        },
-        { merge: true },
-      ),
-    ),
-  );
-}
-
 export async function seedReportTemplates() {
   await Promise.all(
     DEFAULT_REPORT_TEMPLATES.map((template) =>
@@ -263,7 +223,6 @@ export async function seedAll() {
   await seedSchoolYears();
   await seedActivityTypes();
   await seedSystemSettings();
-  await seedDatabaseDesign();
   await seedReportTemplates();
   await seedArchivePlan();
   await seedDefaultNotification();

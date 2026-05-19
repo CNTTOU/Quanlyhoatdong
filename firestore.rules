@@ -1,0 +1,146 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userPath() {
+      return /databases/$(database)/documents/nguoi_dung/$(request.auth.uid);
+    }
+
+    function hasUserProfile() {
+      return isSignedIn() && exists(userPath());
+    }
+
+    function getUserData() {
+      return get(userPath()).data;
+    }
+
+    function isActiveUser() {
+      return hasUserProfile() && getUserData().trang_thai in ['dang_hoat_dong', 'cho_doi_mat_khau'];
+    }
+
+    function hasRole(role) {
+      return isActiveUser() && getUserData().ma_vai_tro == role;
+    }
+
+    function isSuperAdmin() {
+      return hasRole('super_admin');
+    }
+
+    function isAdmin() {
+      return isSuperAdmin() || hasRole('admin_doan_hoi');
+    }
+
+    function sameDonVi(maDonVi) {
+      return isActiveUser() && getUserData().ma_don_vi == maDonVi;
+    }
+
+    function canCreateActivity() {
+      return isActiveUser() && getUserData().ma_vai_tro in ['super_admin', 'admin_doan_hoi', 'ban_chap_hanh', 'can_bo_chi_doan_chi_hoi', 'cong_tac_vien'];
+    }
+
+    match /quyen/{id} {
+      allow read: if isActiveUser();
+      allow write: if isSuperAdmin();
+    }
+
+    match /vai_tro/{id} {
+      allow read: if isActiveUser();
+      allow write: if isSuperAdmin();
+    }
+
+    match /nguoi_dung/{uid} {
+      allow read: if isActiveUser() && (request.auth.uid == uid || isAdmin());
+      allow create: if isAdmin();
+      allow update: if isAdmin()
+        || (request.auth.uid == uid
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['ma_vai_tro', 'ten_vai_tro', 'trang_thai']));
+      allow delete: if isSuperAdmin();
+    }
+
+    match /don_vi/{id} {
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
+    }
+
+    match /nam_hoc/{id} {
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
+    }
+
+    match /loai_hoat_dong/{id} {
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
+    }
+
+    match /hoat_dong/{id} {
+      allow read: if isAdmin()
+        || (isActiveUser() && resource.data.trang_thai == 'da_duyet')
+        || (isActiveUser() && sameDonVi(resource.data.ma_don_vi));
+      allow create: if canCreateActivity() && (isAdmin() || sameDonVi(request.resource.data.ma_don_vi));
+      allow update: if isAdmin() || (isActiveUser() && sameDonVi(resource.data.ma_don_vi));
+      allow delete: if isAdmin();
+    }
+
+    match /minh_chung/{id} {
+      allow read: if isAdmin() || (isActiveUser() && sameDonVi(resource.data.ma_don_vi));
+      allow create: if isActiveUser() && (isAdmin() || sameDonVi(request.resource.data.ma_don_vi));
+      allow update, delete: if isAdmin() || (isActiveUser() && sameDonVi(resource.data.ma_don_vi));
+    }
+
+    match /duyet_hoat_dong/{id} {
+      allow read: if isActiveUser();
+      allow create: if isActiveUser();
+      allow update, delete: if isAdmin();
+    }
+
+    match /mau_bao_cao/{id} {
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
+    }
+
+    match /bao_cao_da_tao/{id} {
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
+    }
+
+    match /luu_tru_nam_hoc/{id} {
+      allow read: if isActiveUser();
+      allow write: if isSuperAdmin();
+    }
+
+    match /nhat_ky_he_thong/{id} {
+      allow read: if isAdmin();
+      allow create: if isActiveUser();
+      allow update, delete: if isSuperAdmin();
+    }
+
+    match /cai_dat_he_thong/{id} {
+      allow read: if isActiveUser();
+      allow write: if isSuperAdmin();
+    }
+
+    match /thong_bao/{id} {
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
+    }
+
+    match /thiet_ke_csdl/{id} {
+      allow read: if isActiveUser();
+      allow write: if isSuperAdmin();
+    }
+
+    match /du_lieu_cong_khai/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /du_lieu_hien_thi/{id} {
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
+    }
+  }
+}

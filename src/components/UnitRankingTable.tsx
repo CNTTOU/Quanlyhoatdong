@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Trophy, TrendingUp } from 'lucide-react';
-import { getInterfaceList } from '@/services/interfaceDataService';
+import { collection, getDocs } from 'firebase/firestore';
+import { db, identityDb } from '@/lib/firebase';
 
 interface UnitRanking {
   rank: number;
@@ -10,12 +11,38 @@ interface UnitRanking {
   change: number;
 }
 
-export function UnitRankingTable() {
-  const [rankings, setRankings] = useState<UnitRanking[]>([]);
+interface UnitRankingTableProps {
+  data?: UnitRanking[];
+}
+
+export function UnitRankingTable({ data: inputData }: UnitRankingTableProps) {
+  const [rankings, setRankings] = useState<UnitRanking[]>(inputData ?? []);
 
   useEffect(() => {
-    getInterfaceList<UnitRanking>('bang_xep_hang_don_vi').then(setRankings);
-  }, []);
+    if (inputData) {
+      setRankings(inputData);
+      return;
+    }
+    Promise.all([getDocs(collection(identityDb, 'don_vi')), getDocs(collection(db, 'hoat_dong'))]).then(([unitSnap, activitySnap]) => {
+      const activities = activitySnap.docs.map((item) => item.data());
+      const rows = unitSnap.docs
+        .map((item) => {
+          const unit = item.data();
+          const unitActivities = activities.filter((activity) => activity.ma_don_vi === item.id);
+          return {
+            rank: 0,
+            name: String(unit.ten_don_vi ?? item.id),
+            activities: unitActivities.length,
+            participants: unitActivities.reduce((sum, activity) => sum + Number(activity.so_luong_tham_gia ?? 0), 0),
+            change: 0,
+          };
+        })
+        .sort((a, b) => b.activities - a.activities)
+        .slice(0, 5)
+        .map((item, index) => ({ ...item, rank: index + 1 }));
+      setRankings(rows);
+    });
+  }, [inputData]);
 
   return (
     <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">

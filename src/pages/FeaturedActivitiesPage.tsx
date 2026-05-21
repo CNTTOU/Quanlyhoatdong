@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Award, Filter } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { FeaturedActivityHero } from '@/components/FeaturedActivityHero';
 import { FeaturedActivityCard } from '@/components/FeaturedActivityCard';
-import { getPublicInterfaceData } from '@/services/interfaceDataService';
+import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { getActivityTypes } from '@/services/activityTypeService';
+import { getCachedSchoolYearsBasic } from '@/services/schoolYearService';
 
 interface FeaturedData {
   heroActivity: Parameters<typeof FeaturedActivityHero>[0]['activity'] | null;
@@ -22,14 +26,46 @@ const emptyFeaturedData: FeaturedData = {
 export function FeaturedActivitiesPage() {
   const [data, setData] = useState<FeaturedData>(emptyFeaturedData);
   const [isLoading, setIsLoading] = useState(true);
-  const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
+  const [years, setYears] = useState<Array<{ value: string; label: string }>>([]);
+  const [activityTypes, setActivityTypes] = useState<Array<{ value: string; label: string }>>([]);
+  const [selectedYear, setSelectedYear] = useState('');
+  const [selectedType, setSelectedType] = useState('');
+  const navigate = useNavigate();
 
   useEffect(() => {
-    getPublicInterfaceData<FeaturedData>('hoat_dong_noi_bat', emptyFeaturedData)
-      .then(setData)
+    setIsLoading(true);
+    Promise.all([
+      getDocs(query(collection(db, 'hoat_dong'), where('trang_thai', '==', 'da_duyet'), where('hien_thi_noi_bat', '==', true))),
+      getCachedSchoolYearsBasic(),
+      getActivityTypes(),
+    ])
+      .then(([activitySnap, schoolYears, types]) => {
+        const activities = activitySnap.docs.map((item) => {
+          const itemData = item.data();
+          return {
+            id: item.id,
+            title: String(itemData.ten_hoat_dong ?? ''),
+            description: String(itemData.noi_dung ?? itemData.muc_tieu ?? ''),
+            image: String(itemData.anh_dai_dien ?? ''),
+            date: toDateText(itemData.thoi_gian_bat_dau),
+            location: String(itemData.dia_diem ?? ''),
+            participants: Number(itemData.so_luong_tham_gia ?? 0),
+            category: String(itemData.ten_loai ?? ''),
+            unit: String(itemData.ten_don_vi ?? ''),
+            ma_nam_hoc: String(itemData.ma_nam_hoc ?? ''),
+            ma_loai: String(itemData.ma_loai ?? ''),
+          };
+        }).filter((activity) => (!selectedYear || activity.ma_nam_hoc === selectedYear) && (!selectedType || activity.ma_loai === selectedType));
+        setYears(schoolYears.map((year) => ({ value: year.ma_nam_hoc, label: year.ten_nam_hoc })));
+        setActivityTypes(types.map((type) => ({ value: type.ma_loai, label: type.ten_loai })));
+        setData({
+          heroActivity: activities[0] ?? null,
+          featuredActivities: activities.slice(1),
+          stats: { title: 'Thành tích nổi bật', items: [] },
+        });
+      })
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [selectedType, selectedYear]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50/30">
@@ -49,7 +85,7 @@ export function FeaturedActivitiesPage() {
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Hero Featured Activity */}
         {data.heroActivity && (
-          <FeaturedActivityHero activity={data.heroActivity} onViewDetail={() => {}} />
+          <FeaturedActivityHero activity={data.heroActivity} onViewDetail={() => navigate(`/activities/${data.heroActivity?.id}`)} />
         )}
 
         {/* Filters */}
@@ -62,11 +98,11 @@ export function FeaturedActivitiesPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm text-gray-600 mb-2">Năm học</label>
-              <select className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <select value={selectedYear} onChange={(event) => setSelectedYear(event.target.value)} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="">Tất cả năm</option>
                 {years.map((year) => (
-                  <option key={year} value={year}>
-                    {year} - {year + 1}
+                  <option key={year.value} value={year.value}>
+                    {year.label}
                   </option>
                 ))}
               </select>
@@ -74,14 +110,11 @@ export function FeaturedActivitiesPage() {
 
             <div>
               <label className="block text-sm text-gray-600 mb-2">Loại hoạt động</label>
-              <select className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <select value={selectedType} onChange={(event) => setSelectedType(event.target.value)} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="">Tất cả loại</option>
-                <option value="hoc-thuat">Học thuật</option>
-                <option value="tinh-nguyen">Tình nguyện</option>
-                <option value="ky-nang">Kỹ năng</option>
-                <option value="sv5t">SV5T</option>
-                <option value="truyen-thong">Truyền thông</option>
-                <option value="van-hoa">Văn hóa - Thể thao</option>
+                {activityTypes.map((type) => (
+                  <option key={type.value} value={type.value}>{type.label}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -100,7 +133,7 @@ export function FeaturedActivitiesPage() {
             <FeaturedActivityCard
               key={activity.id}
               activity={activity}
-              onViewDetail={(id) => console.log('View activity', id)}
+              onViewDetail={(id) => navigate(`/activities/${id}`)}
             />
           ))}
         </div>
@@ -126,4 +159,10 @@ export function FeaturedActivitiesPage() {
       </div>
     </div>
   );
+}
+
+function toDateText(value: unknown) {
+  if (value instanceof Timestamp) return value.toDate().toLocaleDateString('vi-VN');
+  if (typeof value === 'string' && value) return new Date(value).toLocaleDateString('vi-VN');
+  return '';
 }

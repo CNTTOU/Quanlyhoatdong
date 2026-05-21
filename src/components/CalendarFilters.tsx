@@ -4,9 +4,11 @@ interface CalendarFiltersProps {
   currentMonth: string;
   onMonthChange: (direction: 'prev' | 'next') => void;
   onFilterChange: (filters: any) => void;
+  categories?: Array<{ value: string; label: string }>;
+  units?: Array<{ value: string; label: string }>;
 }
 
-export function CalendarFilters({ currentMonth, onMonthChange, onFilterChange }: CalendarFiltersProps) {
+export function CalendarFilters({ currentMonth, onMonthChange, onFilterChange, categories = [], units = [] }: CalendarFiltersProps) {
   return (
     <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 mb-6">
       <div className="flex items-center justify-between mb-4">
@@ -35,25 +37,27 @@ export function CalendarFilters({ currentMonth, onMonthChange, onFilterChange }:
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <label className="block text-sm text-gray-600 mb-2">Loại hoạt động</label>
-          <select className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+          <select
+            className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            onChange={(event) => onFilterChange({ category: event.target.value })}
+          >
             <option value="">Tất cả loại</option>
-            <option value="hoc-thuat">Học thuật</option>
-            <option value="tinh-nguyen">Tình nguyện</option>
-            <option value="ky-nang">Kỹ năng</option>
-            <option value="sv5t">SV5T</option>
-            <option value="truyen-thong">Truyền thông</option>
-            <option value="van-hoa-the-thao">Văn hóa - Thể thao</option>
+            {categories.map((item) => (
+              <option key={item.value} value={item.value}>{item.label}</option>
+            ))}
           </select>
         </div>
 
         <div>
           <label className="block text-sm text-gray-600 mb-2">Đơn vị tổ chức</label>
-          <select className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+          <select
+            className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            onChange={(event) => onFilterChange({ unit: event.target.value })}
+          >
             <option value="">Tất cả đơn vị</option>
-            <option value="doan-cntt">Đoàn CNTT</option>
-            <option value="doan-khoa-hoc">Đoàn Khoa học</option>
-            <option value="hoi-svhs">Hội SVHS</option>
-            <option value="hoi-chu-thap-do">Hội chữ thập đỏ</option>
+            {units.map((item) => (
+              <option key={item.value} value={item.value}>{item.label}</option>
+            ))}
           </select>
         </div>
 

@@ -1,28 +1,30 @@
 import { Image, Video, FileText, Link as LinkIcon, Users, HardDrive } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
-interface Tab {
+export interface EvidenceTab {
   id: string;
   label: string;
-  icon: any;
+  icon: LucideIcon | null;
   count: number;
 }
 
 interface EvidenceTabsProps {
   activeTab: string;
+  tabs: EvidenceTab[];
   onTabChange: (tab: string) => void;
 }
 
-const tabs: Tab[] = [
-  { id: 'all', label: 'Tất cả', icon: null, count: 156 },
-  { id: 'images', label: 'Hình ảnh', icon: Image, count: 89 },
-  { id: 'videos', label: 'Video', icon: Video, count: 24 },
-  { id: 'reports', label: 'File báo cáo', icon: FileText, count: 32 },
-  { id: 'links', label: 'Link bài viết', icon: LinkIcon, count: 15 },
-  { id: 'attendance', label: 'Danh sách tham gia', icon: Users, count: 18 },
-  { id: 'drive', label: 'Google Drive', icon: HardDrive, count: 12 },
+export const evidenceTabConfig: Omit<EvidenceTab, 'count'>[] = [
+  { id: 'all', label: 'Tất cả', icon: null },
+  { id: 'images', label: 'Hình ảnh', icon: Image },
+  { id: 'videos', label: 'Video', icon: Video },
+  { id: 'reports', label: 'File báo cáo', icon: FileText },
+  { id: 'links', label: 'Link bài viết', icon: LinkIcon },
+  { id: 'attendance', label: 'Danh sách tham gia', icon: Users },
+  { id: 'drive', label: 'Google Drive', icon: HardDrive },
 ];
 
-export function EvidenceTabs({ activeTab, onTabChange }: EvidenceTabsProps) {
+export function EvidenceTabs({ activeTab, tabs, onTabChange }: EvidenceTabsProps) {
   return (
     <div className="bg-white border-b border-gray-200 mb-6">
       <div className="flex items-center gap-2 overflow-x-auto">

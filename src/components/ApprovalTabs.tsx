@@ -1,4 +1,6 @@
 import { Clock, CheckCircle, AlertCircle, XCircle } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { defaultActivityStatuses, getActivityStatusSettings, type ActivityStatusSetting } from '@/services/settingService';
 
 interface Tab {
   id: string;
@@ -11,22 +13,32 @@ interface Tab {
 interface ApprovalTabsProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
+  counts: Record<string, number>;
 }
 
 const tabs: Tab[] = [
-  { id: 'pending', label: 'Chờ duyệt', icon: Clock, count: 28, color: 'text-yellow-600' },
-  { id: 'approved', label: 'Đã duyệt', icon: CheckCircle, count: 156, color: 'text-green-600' },
-  { id: 'need-update', label: 'Cần bổ sung', icon: AlertCircle, count: 12, color: 'text-orange-600' },
-  { id: 'rejected', label: 'Từ chối', icon: XCircle, count: 8, color: 'text-red-600' },
+  { id: 'pending', label: 'Chờ duyệt', icon: Clock, count: 0, color: 'text-yellow-600' },
+  { id: 'approved', label: 'Đã duyệt', icon: CheckCircle, count: 0, color: 'text-green-600' },
+  { id: 'need-update', label: 'Cần bổ sung', icon: AlertCircle, count: 0, color: 'text-orange-600' },
+  { id: 'rejected', label: 'Từ chối', icon: XCircle, count: 0, color: 'text-red-600' },
 ];
 
-export function ApprovalTabs({ activeTab, onTabChange }: ApprovalTabsProps) {
+export function ApprovalTabs({ activeTab, onTabChange, counts }: ApprovalTabsProps) {
+  const [statusSettings, setStatusSettings] = useState<ActivityStatusSetting[]>(defaultActivityStatuses);
+
+  useEffect(() => {
+    getActivityStatusSettings().then(setStatusSettings).catch(() => undefined);
+  }, []);
+
   return (
     <div className="bg-white border-b border-gray-200 mb-6">
       <div className="flex items-center gap-2 overflow-x-auto">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
+          const setting = statusSettings.find((item) => item.khoa_hien_thi === tab.id);
+          const label = setting?.ten_hien_thi ?? tab.label;
+          const color = setting?.mau_hien_thi;
 
           return (
             <button
@@ -38,8 +50,8 @@ export function ApprovalTabs({ activeTab, onTabChange }: ApprovalTabsProps) {
                   : 'border-transparent text-gray-600 hover:text-gray-900'
               }`}
             >
-              <Icon className={`w-4 h-4 ${isActive ? 'text-blue-600' : tab.color}`} />
-              <span className="text-sm">{tab.label}</span>
+              <Icon className={`w-4 h-4 ${isActive || color ? '' : tab.color}`} style={isActive ? undefined : { color }} />
+              <span className="text-sm">{label}</span>
               <span
                 className={`px-2 py-0.5 rounded-full text-xs ${
                   isActive
@@ -47,7 +59,7 @@ export function ApprovalTabs({ activeTab, onTabChange }: ApprovalTabsProps) {
                     : 'bg-gray-100 text-gray-600'
                 }`}
               >
-                {tab.count}
+                {counts[tab.id] ?? tab.count}
               </span>
             </button>
           );

@@ -17,6 +17,14 @@ function figmaAssetResolver() {
 
 export default defineConfig({
   base: process.env.VITE_APP_BASE_PATH ?? "/hoat-dong/",
+  server: {
+    proxy: {
+      "/api": {
+        target: process.env.VITE_GATEWAY_API_BASE || "http://localhost:3001",
+        changeOrigin: true,
+      },
+    },
+  },
   build: {
     chunkSizeWarningLimit: 900,
     rollupOptions: {

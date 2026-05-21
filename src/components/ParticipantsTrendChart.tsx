@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { getInterfaceDocument } from '@/services/interfaceDataService';
 
 type ParticipantTrend = { id?: string; month: string; participants: number };
 
-export function ParticipantsTrendChart() {
-  const [data, setData] = useState<ParticipantTrend[]>([]);
+interface ParticipantsTrendChartProps {
+  data?: ParticipantTrend[];
+}
+
+export function ParticipantsTrendChart({ data: inputData }: ParticipantsTrendChartProps) {
+  const [data, setData] = useState<ParticipantTrend[]>(inputData ?? []);
 
   useEffect(() => {
-    getInterfaceDocument<{ participantTrend: ParticipantTrend[] }>('du_lieu_bieu_do_dashboard', {
-      participantTrend: [],
-    }).then((result) => setData(result.participantTrend));
-  }, []);
+    setData(inputData ?? []);
+  }, [inputData]);
 
   return (
     <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">

@@ -1,45 +1,76 @@
-import { useEffect, useState } from 'react';
-import { Archive, AlertTriangle, Lock, Package, Download, CheckCircle, Trash2, Info, FileArchive, FileText, Image, Users, Clock } from 'lucide-react';
-import { getInterfaceList } from '@/services/interfaceDataService';
+import { FormEvent, useEffect, useState } from 'react';
+import { Archive, AlertTriangle, Lock, Package, Download, CheckCircle, Trash2, Info, FileArchive, FileText, Image, Users, Clock, Plus, Edit } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { deleteSchoolYear, getSchoolYears, lockSchoolYear, saveSchoolYear, type SchoolYearDisplay, type SchoolYearFormInput } from '@/services/schoolYearService';
 
-type AcademicYearDisplay = {
-  id: number;
-  name: string;
-  startDate: string;
-  endDate: string;
-  activities: number;
-  evidence: number;
-  reports: number;
-  size: string;
-  status: string;
+const emptyForm: SchoolYearFormInput = {
+  ma_nam_hoc: '',
+  ten_nam_hoc: '',
+  ngay_bat_dau: '',
+  ngay_ket_thuc: '',
+  trang_thai: 'dang_hoat_dong',
+  la_nam_hoc_hien_tai: false,
+  da_luu_tru: false,
+  da_xoa_du_lieu_online: false,
 };
 
+function toInputDate(value: SchoolYearDisplay['ngay_bat_dau']) {
+  if (!value) return '';
+  const date = typeof value === 'string' ? new Date(value) : value instanceof Date ? value : value.toDate();
+  return date.toISOString().slice(0, 10);
+}
+
 export function ArchivePage() {
-  const [academicYears, setAcademicYears] = useState<AcademicYearDisplay[]>([]);
-  const [selectedYear, setSelectedYear] = useState<number | null>(2);
+  const { user, hasPermission } = useAuth();
+  const [academicYears, setAcademicYears] = useState<SchoolYearDisplay[]>([]);
+  const [selectedYear, setSelectedYear] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showFormModal, setShowFormModal] = useState(false);
   const [confirmText, setConfirmText] = useState('');
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [confirmChecked, setConfirmChecked] = useState(false);
   const [archiveStep, setArchiveStep] = useState(2);
+  const [form, setForm] = useState<SchoolYearFormInput>(emptyForm);
+  const [editingYear, setEditingYear] = useState<SchoolYearDisplay | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+  const canCreateArchive = hasPermission('tao_goi_luu_tru');
+  const canDeleteArchive = hasPermission('xoa_du_lieu_nam_hoc');
+  const canManage = canCreateArchive;
+
+  async function loadSchoolYears() {
+    setLoading(true);
+    try {
+      const items = await getSchoolYears();
+      setAcademicYears(items);
+      setSelectedYear((current) => current ?? items.find((item) => item.la_nam_hoc_hien_tai)?.id ?? items[0]?.id ?? null);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Không thể tải danh sách năm học.');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    getInterfaceList<AcademicYearDisplay>('luu_tru_nam_hoc').then((items) => {
-      setAcademicYears(items);
-      setSelectedYear((current) => current ?? items[0]?.id ?? null);
-    });
+    loadSchoolYears();
   }, []);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
+      case 'dang_hoat_dong':
         return { label: 'Đang hoạt động', color: 'bg-green-100 text-green-700' };
       case 'locked':
+      case 'da_khoa':
         return { label: 'Đã khóa', color: 'bg-orange-100 text-orange-700' };
       case 'archived-ready':
         return { label: 'Đã tạo gói lưu trữ', color: 'bg-blue-100 text-blue-700' };
       case 'archived':
+      case 'da_luu_tru_offline':
         return { label: 'Đã lưu trữ offline', color: 'bg-purple-100 text-purple-700' };
       case 'deleted-online':
+      case 'da_xoa_du_lieu_online':
         return { label: 'Đã xóa dữ liệu online', color: 'bg-gray-100 text-gray-700' };
       default:
         return { label: 'Chờ lưu trữ', color: 'bg-yellow-100 text-yellow-700' };
@@ -47,6 +78,82 @@ export function ArchivePage() {
   };
 
   const selected = academicYears.find(y => y.id === selectedYear);
+
+  function openCreateModal() {
+    setEditingYear(null);
+    setForm(emptyForm);
+    setMessage('');
+    setShowFormModal(true);
+  }
+
+  function openEditModal(year: SchoolYearDisplay) {
+    setEditingYear(year);
+    setForm({
+      ma_nam_hoc: year.ma_nam_hoc,
+      ten_nam_hoc: year.ten_nam_hoc,
+      ngay_bat_dau: toInputDate(year.ngay_bat_dau),
+      ngay_ket_thuc: toInputDate(year.ngay_ket_thuc),
+      trang_thai: year.trang_thai,
+      la_nam_hoc_hien_tai: year.la_nam_hoc_hien_tai,
+      da_luu_tru: year.da_luu_tru,
+      da_xoa_du_lieu_online: year.da_xoa_du_lieu_online,
+    });
+    setMessage('');
+    setShowFormModal(true);
+  }
+
+  function validateForm() {
+    if (!form.ma_nam_hoc || !form.ten_nam_hoc || !form.ngay_bat_dau || !form.ngay_ket_thuc) return 'Vui lòng nhập đầy đủ mã, tên và thời gian năm học.';
+    if (new Date(String(form.ngay_bat_dau)) > new Date(String(form.ngay_ket_thuc))) return 'Ngày bắt đầu phải nhỏ hơn ngày kết thúc.';
+    return '';
+  }
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (!canManage) return;
+    const error = validateForm();
+    if (error) {
+      setMessage(error);
+      return;
+    }
+
+    setSaving(true);
+    setMessage('');
+    try {
+      if (!user) return;
+      await saveSchoolYear(form, Boolean(editingYear), user);
+      setMessage(editingYear ? 'Cập nhật năm học thành công.' : 'Thêm năm học thành công.');
+      setShowFormModal(false);
+      await loadSchoolYears();
+    } catch (saveError) {
+      setMessage(saveError instanceof Error ? saveError.message : 'Không thể lưu năm học.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleLockYear(year: SchoolYearDisplay) {
+    if (!canManage) return;
+    if (!window.confirm(`Khóa năm học ${year.name}? Hoạt động thuộc năm học này sẽ không được sửa, trừ super_admin.`)) return;
+    if (!user) return;
+    await lockSchoolYear(year, user);
+    setMessage(`Đã khóa năm học ${year.name}.`);
+    await loadSchoolYears();
+  }
+
+  async function handleDeleteYear() {
+    if (!selected || !canDeleteArchive) return;
+    if (!confirmChecked || confirmText !== selected.name || deleteConfirmText !== 'XOA DU LIEU') return;
+    if (!user) return;
+    await deleteSchoolYear(selected, user);
+    setMessage(`Đã xóa năm học ${selected.name}.`);
+    setShowDeleteModal(false);
+    setConfirmChecked(false);
+    setConfirmText('');
+    setDeleteConfirmText('');
+    setSelectedYear(null);
+    await loadSchoolYears();
+  }
 
   return (
     <div className="p-6">
@@ -61,9 +168,17 @@ export function ArchivePage() {
           <Archive className="w-8 h-8 text-blue-600" />
           <h2 className="text-gray-900">Lưu trữ năm học</h2>
         </div>
-        <p className="text-sm text-gray-500">
-          Xuất và lưu trữ dữ liệu năm học offline, giải phóng dung lượng database cho năm học mới
-        </p>
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-sm text-gray-500">
+            Xuất và lưu trữ dữ liệu năm học offline, giải phóng dung lượng database cho năm học mới
+          </p>
+          {canManage && (
+            <button onClick={openCreateModal} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm flex items-center gap-2">
+              <Plus className="w-4 h-4" />
+              <span>Thêm năm học</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Security Warning */}
@@ -77,6 +192,8 @@ export function ArchivePage() {
         </div>
       </div>
 
+      {message && <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">{message}</div>}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Academic Years List */}
         <div className="lg:col-span-1">
@@ -85,7 +202,9 @@ export function ArchivePage() {
               <h3 className="text-sm font-semibold text-gray-900">Danh sách năm học</h3>
             </div>
             <div className="divide-y divide-gray-100">
-              {academicYears.map((year) => {
+              {loading ? (
+                <div className="p-4 text-sm text-gray-500">Đang tải năm học...</div>
+              ) : academicYears.map((year) => {
                 const statusBadge = getStatusBadge(year.status);
                 const isSelected = selectedYear === year.id;
                 return (
@@ -134,7 +253,23 @@ export function ArchivePage() {
             <>
               {/* Year Details */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <h3 className="text-sm font-semibold text-gray-900 mb-4">Chi tiết năm học {selected.name}</h3>
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <h3 className="text-sm font-semibold text-gray-900">Chi tiết năm học {selected.name}</h3>
+                  {(canManage || canDeleteArchive) && (
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => openEditModal(selected)} className="px-3 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm flex items-center gap-2">
+                        <Edit className="w-4 h-4" />
+                        <span>Sửa</span>
+                      </button>
+                      {canDeleteArchive && (
+                        <button onClick={() => setShowDeleteModal(true)} className="px-3 py-2 bg-white text-red-700 border border-red-200 rounded-lg hover:bg-red-50 transition-colors text-sm flex items-center gap-2">
+                          <Trash2 className="w-4 h-4" />
+                          <span>Xóa</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                   <div className="bg-blue-50 rounded-lg p-4">
@@ -143,7 +278,7 @@ export function ArchivePage() {
                       <p className="text-xs text-blue-700">Hoạt động</p>
                     </div>
                     <p className="text-2xl font-semibold text-blue-900">{selected.activities}</p>
-                    <p className="text-xs text-blue-600 mt-1">Đã duyệt: {Math.floor(selected.activities * 0.85)}</p>
+                    <p className="text-xs text-blue-600 mt-1">Đã duyệt: {selected.approvedActivities}</p>
                   </div>
 
                   <div className="bg-purple-50 rounded-lg p-4">
@@ -152,7 +287,7 @@ export function ArchivePage() {
                       <p className="text-xs text-purple-700">Minh chứng</p>
                     </div>
                     <p className="text-2xl font-semibold text-purple-900">{selected.evidence}</p>
-                    <p className="text-xs text-purple-600 mt-1">{selected.size} dữ liệu</p>
+                    <p className="text-xs text-purple-600 mt-1">{selected.evidence} mục dữ liệu</p>
                   </div>
 
                   <div className="bg-green-50 rounded-lg p-4">
@@ -169,7 +304,7 @@ export function ArchivePage() {
                       <Users className="w-5 h-5 text-cyan-600" />
                       <p className="text-xs text-cyan-700">Tham gia</p>
                     </div>
-                    <p className="text-2xl font-semibold text-cyan-900">{(selected.activities * 12).toLocaleString()}</p>
+                    <p className="text-2xl font-semibold text-cyan-900">{selected.participants.toLocaleString()}</p>
                     <p className="text-xs text-cyan-600 mt-1">Lượt sinh viên</p>
                   </div>
                 </div>
@@ -178,12 +313,12 @@ export function ArchivePage() {
                   <div className="flex items-center gap-2">
                     <Clock className="w-4 h-4 text-gray-400" />
                     <span className="text-gray-500">Lần cập nhật cuối:</span>
-                    <span className="text-gray-900">15/05/2026</span>
+                    <span className="text-gray-900">{selected.lastUpdated}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Users className="w-4 h-4 text-gray-400" />
-                    <span className="text-gray-500">Người phụ trách:</span>
-                    <span className="text-gray-900">Admin Đoàn - Hội</span>
+                    <span className="text-gray-500">Năm học hiện tại:</span>
+                    <span className="text-gray-900">{selected.la_nam_hoc_hien_tai ? 'Có' : 'Không'}</span>
                   </div>
                 </div>
               </div>
@@ -229,7 +364,7 @@ export function ArchivePage() {
                 </div>
 
                 {/* Step 1: Lock Year */}
-                {selected.status === 'active' && (
+                {(selected.status === 'active' || selected.status === 'dang_hoat_dong') && (
                   <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
                     <div className="flex items-start gap-3">
                       <Lock className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
@@ -238,17 +373,19 @@ export function ArchivePage() {
                         <p className="text-sm text-orange-700 mb-3">
                           Sau khi khóa, người dùng không thể thêm, sửa, xóa hoạt động thuộc năm học này.
                         </p>
-                        <button className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm flex items-center gap-2">
-                          <Lock className="w-4 h-4" />
-                          <span>Khóa năm học {selected.name}</span>
-                        </button>
+                        {canCreateArchive && (
+                          <button onClick={() => handleLockYear(selected)} className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm flex items-center gap-2">
+                            <Lock className="w-4 h-4" />
+                            <span>Khóa năm học {selected.name}</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
                 )}
 
                 {/* Step 2: Create Archive Package */}
-                {(selected.status === 'locked' || archiveStep >= 2) && (
+                {(selected.status === 'locked' || selected.status === 'da_khoa' || archiveStep >= 2) && (
                   <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                     <div className="flex items-start gap-3">
                       <Package className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
@@ -288,7 +425,7 @@ export function ArchivePage() {
                           </div>
                         </div>
 
-                        {archiveStep === 2 && (
+                        {canCreateArchive && archiveStep === 2 && (
                           <button
                             onClick={() => setArchiveStep(3)}
                             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm flex items-center gap-2"
@@ -318,9 +455,9 @@ export function ArchivePage() {
                             <div className="flex items-center gap-3">
                               <FileArchive className="w-10 h-10 text-blue-600" />
                               <div>
-                                <p className="text-sm font-medium text-gray-900">ARCHIVE_{selected.name}.zip</p>
-                                <p className="text-xs text-gray-500">Dung lượng: {selected.size} • Ngày tạo: 15/05/2026 10:30</p>
-                                <p className="text-xs text-gray-500">Người tạo: Admin Đoàn - Hội</p>
+                                <p className="text-sm font-medium text-gray-900">archive_{selected.id}</p>
+                                <p className="text-xs text-gray-500">Dung lượng ước tính: {selected.size} • Ngày tạo: {new Date().toLocaleString('vi-VN')}</p>
+                                <p className="text-xs text-gray-500">Người tạo: {user?.ho_ten || user?.email || 'Người dùng hiện tại'}</p>
                               </div>
                             </div>
                           </div>
@@ -387,7 +524,7 @@ export function ArchivePage() {
                 )}
 
                 {/* Step 5: Delete Online Data */}
-                {archiveStep >= 3 && confirmChecked && confirmText === selected.name && (
+                {canDeleteArchive && archiveStep >= 3 && confirmChecked && confirmText === selected.name && (
                   <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
                     <div className="flex items-start gap-3">
                       <Trash2 className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
@@ -447,18 +584,18 @@ export function ArchivePage() {
                     <Clock className="w-4 h-4 text-gray-400 mt-0.5" />
                     <div className="flex-1">
                       <p className="text-gray-900">
-                        <span className="font-medium">Admin Đoàn - Hội</span> đã tạo gói lưu trữ
+                        <span className="font-medium">{user?.ho_ten || user?.email || 'Người dùng hiện tại'}</span> đã tạo gói lưu trữ
                       </p>
-                      <p className="text-xs text-gray-500">15/05/2026 10:30</p>
+                      <p className="text-xs text-gray-500">{new Date().toLocaleString('vi-VN')}</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3 text-sm">
                     <Clock className="w-4 h-4 text-gray-400 mt-0.5" />
                     <div className="flex-1">
                       <p className="text-gray-900">
-                        <span className="font-medium">Admin Đoàn - Hội</span> đã khóa năm học
+                        <span className="font-medium">{user?.ho_ten || user?.email || 'Người dùng hiện tại'}</span> đã khóa năm học
                       </p>
-                      <p className="text-xs text-gray-500">15/05/2026 09:15</p>
+                      <p className="text-xs text-gray-500">{new Date().toLocaleString('vi-VN')}</p>
                     </div>
                   </div>
                 </div>
@@ -499,12 +636,39 @@ export function ArchivePage() {
               </ul>
             </div>
 
+            <label className="flex items-start gap-2 mb-4 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={confirmChecked}
+                onChange={(e) => setConfirmChecked(e.target.checked)}
+                className="mt-0.5"
+              />
+              <span className="text-sm text-gray-700">
+                Tôi xác nhận đã tải xuống và kiểm tra gói lưu trữ dữ liệu của năm học này.
+              </span>
+            </label>
+
+            <div className="mb-4">
+              <label className="block text-sm text-gray-700 mb-2">
+                Nhập lại tên năm học: <span className="font-semibold">{selected.name}</span>
+              </label>
+              <input
+                type="text"
+                value={confirmText}
+                onChange={(e) => setConfirmText(e.target.value)}
+                placeholder={selected.name}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+            </div>
+
             <div className="mb-4">
               <label className="block text-sm text-gray-700 mb-2">
                 Để xác nhận, vui lòng nhập: <span className="font-mono font-semibold text-red-600">XOA DU LIEU</span>
               </label>
               <input
                 type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
                 placeholder="XOA DU LIEU"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
               />
@@ -517,10 +681,77 @@ export function ArchivePage() {
               >
                 Hủy
               </button>
-              <button className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium">
+              <button
+                onClick={handleDeleteYear}
+                disabled={!confirmChecked || confirmText !== selected.name || deleteConfirmText !== 'XOA DU LIEU'}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium disabled:opacity-60"
+              >
                 Xác nhận xóa
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showFormModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">{editingYear ? 'Sửa năm học' : 'Thêm năm học'}</h3>
+              <button onClick={() => setShowFormModal(false)} className="text-gray-400 hover:text-gray-600">Đóng</button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <label className="block">
+                <span className="block text-sm text-gray-700 mb-2">Mã năm học</span>
+                <input disabled={Boolean(editingYear)} value={form.ma_nam_hoc} onChange={(e) => setForm({ ...form, ma_nam_hoc: e.target.value })} placeholder="2025_2026" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-70" />
+              </label>
+              <label className="block">
+                <span className="block text-sm text-gray-700 mb-2">Tên năm học</span>
+                <input value={form.ten_nam_hoc} onChange={(e) => setForm({ ...form, ten_nam_hoc: e.target.value })} placeholder="2025-2026" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </label>
+              <label className="block">
+                <span className="block text-sm text-gray-700 mb-2">Ngày bắt đầu</span>
+                <input type="date" value={String(form.ngay_bat_dau)} onChange={(e) => setForm({ ...form, ngay_bat_dau: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </label>
+              <label className="block">
+                <span className="block text-sm text-gray-700 mb-2">Ngày kết thúc</span>
+                <input type="date" value={String(form.ngay_ket_thuc)} onChange={(e) => setForm({ ...form, ngay_ket_thuc: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </label>
+              <label className="block">
+                <span className="block text-sm text-gray-700 mb-2">Trạng thái</span>
+                <select value={form.trang_thai} onChange={(e) => setForm({ ...form, trang_thai: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="dang_hoat_dong">Đang hoạt động</option>
+                  <option value="da_khoa">Đã khóa</option>
+                  <option value="cho_luu_tru">Chờ lưu trữ</option>
+                  <option value="da_luu_tru_offline">Đã lưu trữ offline</option>
+                  <option value="da_xoa_du_lieu_online">Đã xóa dữ liệu online</option>
+                </select>
+              </label>
+              <div className="space-y-3 pt-7">
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input type="checkbox" checked={form.la_nam_hoc_hien_tai} onChange={(e) => setForm({ ...form, la_nam_hoc_hien_tai: e.target.checked })} />
+                  Là năm học hiện tại
+                </label>
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input type="checkbox" checked={form.da_luu_tru} onChange={(e) => setForm({ ...form, da_luu_tru: e.target.checked })} />
+                  Đã lưu trữ
+                </label>
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input type="checkbox" checked={form.da_xoa_du_lieu_online} onChange={(e) => setForm({ ...form, da_xoa_du_lieu_online: e.target.checked })} />
+                  Đã xóa dữ liệu online
+                </label>
+              </div>
+
+              <div className="md:col-span-2 flex justify-end gap-3 pt-2">
+                <button type="button" onClick={() => setShowFormModal(false)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm">
+                  Hủy
+                </button>
+                <button disabled={saving} type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm disabled:opacity-60">
+                  {saving ? 'Đang lưu...' : 'Lưu'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

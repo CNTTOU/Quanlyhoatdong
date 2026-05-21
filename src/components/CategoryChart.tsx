@@ -1,21 +1,23 @@
 import { useEffect, useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
-import { getInterfaceDocument } from '@/services/interfaceDataService';
 
 interface CategoryChartProps {
   year: number;
+  data?: CategoryStat[];
 }
 
 type CategoryStat = { id: string; name: string; value: number; color: string };
 
-export function CategoryChart({ year }: CategoryChartProps) {
-  const [data, setData] = useState<CategoryStat[]>([]);
+export function CategoryChart({ year, data: inputData }: CategoryChartProps) {
+  const [data, setData] = useState<CategoryStat[]>(inputData ?? []);
 
   useEffect(() => {
-    getInterfaceDocument<{ categoryStats: CategoryStat[] }>('du_lieu_bieu_do_dashboard', {
-      categoryStats: [],
-    }).then((result) => setData(result.categoryStats));
-  }, [year]);
+    if (inputData) {
+      setData(inputData);
+      return;
+    }
+    setData([]);
+  }, [year, inputData]);
 
   return (
     <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">

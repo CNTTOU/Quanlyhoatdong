@@ -1,21 +1,23 @@
 import { useEffect, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { getInterfaceDocument } from '@/services/interfaceDataService';
 
 interface ActivityChartProps {
   year: number;
+  data?: MonthlyActivity[];
 }
 
 type MonthlyActivity = { id: string; month: string; activities: number };
 
-export function ActivityChart({ year }: ActivityChartProps) {
-  const [data, setData] = useState<MonthlyActivity[]>([]);
+export function ActivityChart({ year, data: inputData }: ActivityChartProps) {
+  const [data, setData] = useState<MonthlyActivity[]>(inputData ?? []);
 
   useEffect(() => {
-    getInterfaceDocument<{ monthlyActivities: MonthlyActivity[] }>('du_lieu_bieu_do_dashboard', {
-      monthlyActivities: [],
-    }).then((result) => setData(result.monthlyActivities));
-  }, [year]);
+    if (inputData) {
+      setData(inputData);
+      return;
+    }
+    setData([]);
+  }, [year, inputData]);
 
   return (
     <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">

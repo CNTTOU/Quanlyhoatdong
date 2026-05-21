@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+import { defaultActivityStatuses, getActivityStatusSettings, type ActivityStatusSetting } from '@/services/settingService';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
 interface ActivityDetailBannerProps {
@@ -8,14 +10,22 @@ interface ActivityDetailBannerProps {
   image: string;
 }
 
-const statusConfig = {
-  draft: { label: 'Nháp', color: 'bg-gray-100 text-gray-700 border-gray-300' },
-  pending: { label: 'Chờ duyệt', color: 'bg-yellow-100 text-yellow-700 border-yellow-300' },
-  approved: { label: 'Đã duyệt', color: 'bg-green-100 text-green-700 border-green-300' },
-  'need-update': { label: 'Cần bổ sung', color: 'bg-orange-100 text-orange-700 border-orange-300' },
-};
+function getStatusConfig(statuses: ActivityStatusSetting[], status: ActivityDetailBannerProps['status']) {
+  const config = statuses.find((item) => item.khoa_hien_thi === status);
+  return {
+    label: config?.ten_hien_thi ?? status,
+    color: config?.mau_hien_thi ?? '#6B7280',
+  };
+}
 
 export function ActivityDetailBanner({ title, category, unit, status, image }: ActivityDetailBannerProps) {
+  const [statuses, setStatuses] = useState<ActivityStatusSetting[]>(defaultActivityStatuses);
+  const statusConfig = getStatusConfig(statuses, status);
+
+  useEffect(() => {
+    getActivityStatusSettings().then(setStatuses).catch(() => undefined);
+  }, []);
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
       <div className="relative h-64 bg-gradient-to-br from-blue-600 to-cyan-600">
@@ -34,8 +44,8 @@ export function ActivityDetailBanner({ title, category, unit, status, image }: A
             <span className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-sm border border-white/30">
               {unit}
             </span>
-            <span className={`px-3 py-1 rounded-full text-sm border backdrop-blur-sm ${statusConfig[status].color}`}>
-              {statusConfig[status].label}
+            <span className="px-3 py-1 rounded-full text-sm border backdrop-blur-sm" style={{ backgroundColor: `${statusConfig.color}1A`, borderColor: statusConfig.color, color: statusConfig.color }}>
+              {statusConfig.label}
             </span>
           </div>
           <h1 className="text-3xl mb-2">{title}</h1>

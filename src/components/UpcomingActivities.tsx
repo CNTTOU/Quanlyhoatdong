@@ -1,7 +1,7 @@
 import { Calendar, MapPin, Building2 } from 'lucide-react';
 
 interface Activity {
-  id: number;
+  id: string;
   title: string;
   type: string;
   date: string;

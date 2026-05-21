@@ -1,26 +1,13 @@
 import { FileText, CheckCircle } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { getInterfaceDocument } from '@/services/interfaceDataService';
+import type { ReportTemplate } from '@/services/reportBuilderService';
 
-type ReportTemplateOption = {
-  id: string;
-  name: string;
-  description: string;
-};
+interface ReportTemplatesProps {
+  templates: ReportTemplate[];
+  selectedTemplateId: string;
+  onSelect: (templateId: string) => void;
+}
 
-export function ReportTemplates() {
-  const [templates, setTemplates] = useState<ReportTemplateOption[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState('yearly');
-
-  useEffect(() => {
-    getInterfaceDocument<{ reportTemplates: ReportTemplateOption[] }>('cau_hinh_giao_dien', {
-      reportTemplates: [],
-    }).then((data) => {
-      setTemplates(data.reportTemplates);
-      setSelectedTemplate(data.reportTemplates[0]?.id ?? '');
-    });
-  }, []);
-
+export function ReportTemplates({ templates, selectedTemplateId, onSelect }: ReportTemplatesProps) {
   return (
     <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
       <div className="flex items-center gap-2 mb-4">
@@ -29,12 +16,16 @@ export function ReportTemplates() {
       </div>
 
       <div className="space-y-2">
+        {templates.length === 0 && (
+          <p className="text-sm text-gray-500">Chưa có mẫu báo cáo đang sử dụng.</p>
+        )}
+
         {templates.map((template) => (
           <button
-            key={template.id}
-            onClick={() => setSelectedTemplate(template.id)}
+            key={template.ma_mau}
+            onClick={() => onSelect(template.ma_mau)}
             className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
-              selectedTemplate === template.id
+              selectedTemplateId === template.ma_mau
                 ? 'border-blue-500 bg-blue-50'
                 : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
             }`}
@@ -43,15 +34,18 @@ export function ReportTemplates() {
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
                   <h4 className={`text-sm ${
-                    selectedTemplate === template.id ? 'text-blue-900' : 'text-gray-900'
+                    selectedTemplateId === template.ma_mau ? 'text-blue-900' : 'text-gray-900'
                   }`}>
-                    {template.name}
+                    {template.ten_mau}
                   </h4>
-                  {selectedTemplate === template.id && (
+                  {selectedTemplateId === template.ma_mau && (
                     <CheckCircle className="w-4 h-4 text-blue-600" />
                   )}
+                  {template.la_mac_dinh && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Mặc định</span>
+                  )}
                 </div>
-                <p className="text-xs text-gray-600">{template.description}</p>
+                <p className="text-xs text-gray-600">{template.mo_ta || template.loai_bao_cao}</p>
               </div>
             </div>
           </button>

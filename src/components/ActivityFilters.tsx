@@ -1,7 +1,12 @@
 import { Search, Calendar, Filter } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { defaultActivityStatuses, getActivityStatusSettings, type ActivityStatusSetting } from '@/services/settingService';
 
 interface ActivityFiltersProps {
   onFilterChange: (filters: FilterState) => void;
+  years?: Array<{ value: string; label: string }>;
+  categories?: Array<{ value: string; label: string }>;
+  units?: Array<{ value: string; label: string }>;
 }
 
 export interface FilterState {
@@ -29,34 +34,22 @@ const months = [
   { value: '12', label: 'Tháng 12' },
 ];
 
-const categories = [
+const defaultCategories = [
   { value: '', label: 'Tất cả loại' },
-  { value: 'hoc-thuat', label: 'Học thuật' },
-  { value: 'tinh-nguyen', label: 'Tình nguyện' },
-  { value: 'ky-nang', label: 'Kỹ năng' },
-  { value: 'sv5t', label: 'SV5T' },
-  { value: 'truyen-thong', label: 'Truyền thông' },
 ];
 
-const units = [
+const defaultUnits = [
   { value: '', label: 'Tất cả đơn vị' },
-  { value: 'doan-cntt', label: 'Đoàn CNTT' },
-  { value: 'doan-khoa-hoc', label: 'Đoàn Khoa học' },
-  { value: 'hoi-svhs', label: 'Hội SVHS' },
-  { value: 'hoi-chu-thap-do', label: 'Hội chữ thập đỏ' },
 ];
 
-const statuses = [
-  { value: '', label: 'Tất cả trạng thái' },
-  { value: 'draft', label: 'Nháp' },
-  { value: 'pending', label: 'Chờ duyệt' },
-  { value: 'approved', label: 'Đã duyệt' },
-  { value: 'need-update', label: 'Cần bổ sung' },
-];
-
-export function ActivityFilters({ onFilterChange }: ActivityFiltersProps) {
+export function ActivityFilters({ onFilterChange, years: yearOptions, categories = defaultCategories, units = defaultUnits }: ActivityFiltersProps) {
   const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
+  const years = yearOptions ?? Array.from({ length: 5 }, (_, i) => ({ value: String(currentYear - i), label: `${currentYear - i} - ${currentYear - i + 1}` }));
+  const [statuses, setStatuses] = useState<ActivityStatusSetting[]>(defaultActivityStatuses);
+
+  useEffect(() => {
+    getActivityStatusSettings().then(setStatuses).catch(() => undefined);
+  }, []);
 
   const handleChange = (field: keyof FilterState, value: string) => {
     const filters = {
@@ -102,8 +95,8 @@ export function ActivityFilters({ onFilterChange }: ActivityFiltersProps) {
           >
             <option value="">Tất cả năm</option>
             {years.map((year) => (
-              <option key={year} value={year}>
-                {year} - {year + 1}
+              <option key={year.value} value={year.value}>
+                {year.label}
               </option>
             ))}
           </select>
@@ -161,9 +154,10 @@ export function ActivityFilters({ onFilterChange }: ActivityFiltersProps) {
             className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             onChange={(e) => handleChange('status', e.target.value)}
           >
-            {statuses.map((status) => (
-              <option key={status.value} value={status.value}>
-                {status.label}
+            <option value="">Tất cả trạng thái</option>
+            {statuses.filter((status) => status.trang_thai === 'dang_su_dung').map((status) => (
+              <option key={status.khoa_hien_thi} value={status.khoa_hien_thi}>
+                {status.ten_hien_thi}
               </option>
             ))}
           </select>

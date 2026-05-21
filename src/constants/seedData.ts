@@ -1,24 +1,24 @@
 export const PERMISSIONS = [
-  ['xem_hoat_dong', 'Xem hoạt động', 'hoat_dong', false],
-  ['them_hoat_dong', 'Thêm hoạt động', 'hoat_dong', false],
-  ['sua_hoat_dong', 'Sửa hoạt động', 'hoat_dong', false],
-  ['xoa_hoat_dong', 'Xóa hoạt động', 'hoat_dong', true],
-  ['gui_duyet_hoat_dong', 'Gửi duyệt hoạt động', 'hoat_dong', false],
-  ['duyet_hoat_dong', 'Duyệt hoạt động', 'hoat_dong', false],
-  ['yeu_cau_bo_sung_hoat_dong', 'Yêu cầu bổ sung hoạt động', 'hoat_dong', false],
-  ['tu_choi_hoat_dong', 'Từ chối hoạt động', 'hoat_dong', false],
-  ['quan_ly_minh_chung', 'Quản lý minh chứng', 'minh_chung', false],
-  ['xem_bao_cao', 'Xem báo cáo', 'bao_cao', false],
-  ['tao_bao_cao', 'Tạo báo cáo', 'bao_cao', false],
-  ['quan_ly_nguoi_dung', 'Quản lý người dùng', 'nguoi_dung', false],
-  ['tao_tai_khoan', 'Tạo tài khoản', 'nguoi_dung', false],
-  ['khoa_tai_khoan', 'Khóa tài khoản', 'nguoi_dung', true],
-  ['quan_ly_don_vi', 'Quản lý đơn vị', 'don_vi', false],
-  ['quan_ly_phan_quyen', 'Quản lý phân quyền', 'he_thong', true],
-  ['cai_dat_he_thong', 'Cài đặt hệ thống', 'he_thong', true],
-  ['xem_nhat_ky_he_thong', 'Xem nhật ký hệ thống', 'he_thong', false],
-  ['tao_goi_luu_tru', 'Tạo gói lưu trữ', 'luu_tru', true],
-  ['xoa_du_lieu_nam_hoc', 'Xóa dữ liệu năm học', 'luu_tru', true],
+  ['xem_hoat_dong', 'Xem hoạt động', 'quan_ly_hoat_dong', 'hoat_dong', false],
+  ['them_hoat_dong', 'Thêm hoạt động', 'quan_ly_hoat_dong', 'hoat_dong', false],
+  ['sua_hoat_dong', 'Sửa hoạt động', 'quan_ly_hoat_dong', 'hoat_dong', false],
+  ['xoa_hoat_dong', 'Xóa hoạt động', 'quan_ly_hoat_dong', 'hoat_dong', true],
+  ['gui_duyet_hoat_dong', 'Gửi duyệt hoạt động', 'quan_ly_hoat_dong', 'hoat_dong', false],
+  ['duyet_hoat_dong', 'Duyệt hoạt động', 'quan_ly_hoat_dong', 'hoat_dong', false],
+  ['yeu_cau_bo_sung_hoat_dong', 'Yêu cầu bổ sung hoạt động', 'quan_ly_hoat_dong', 'hoat_dong', false],
+  ['tu_choi_hoat_dong', 'Từ chối hoạt động', 'quan_ly_hoat_dong', 'hoat_dong', false],
+  ['quan_ly_minh_chung', 'Quản lý minh chứng', 'quan_ly_hoat_dong', 'minh_chung', false],
+  ['xem_bao_cao', 'Xem báo cáo', 'quan_ly_hoat_dong', 'bao_cao', false],
+  ['tao_bao_cao', 'Tạo báo cáo', 'quan_ly_hoat_dong', 'bao_cao', false],
+  ['quan_ly_nguoi_dung', 'Quản lý người dùng', 'quan_tri_tai_khoan', 'nguoi_dung', false],
+  ['tao_tai_khoan', 'Tạo tài khoản', 'quan_tri_tai_khoan', 'nguoi_dung', false],
+  ['khoa_tai_khoan', 'Khóa tài khoản', 'quan_tri_tai_khoan', 'nguoi_dung', true],
+  ['quan_ly_don_vi', 'Quản lý đơn vị', 'quan_tri_tai_khoan', 'don_vi', false],
+  ['quan_ly_phan_quyen', 'Quản lý phân quyền', 'quan_tri_tai_khoan', 'he_thong', true],
+  ['cai_dat_he_thong', 'Cài đặt hệ thống', 'quan_ly_hoat_dong', 'he_thong', true],
+  ['xem_nhat_ky_he_thong', 'Xem nhật ký hệ thống', 'quan_ly_hoat_dong', 'he_thong', false],
+  ['tao_goi_luu_tru', 'Tạo gói lưu trữ', 'quan_ly_hoat_dong', 'luu_tru', true],
+  ['xoa_du_lieu_nam_hoc', 'Xóa dữ liệu năm học', 'quan_ly_hoat_dong', 'luu_tru', true],
 ] as const;
 
 export const ROLE_PERMISSIONS = {
@@ -59,12 +59,12 @@ export const ROLE_PERMISSIONS = {
 };
 
 export const ROLES = [
-  ['super_admin', 'Super Admin', 'Toàn quyền hệ thống', 100],
-  ['admin_doan_hoi', 'Admin Đoàn - Hội', 'Quản trị nghiệp vụ Đoàn - Hội', 80],
-  ['ban_chap_hanh', 'Ban Chấp hành', 'Quản lý hoạt động đơn vị', 60],
-  ['can_bo_chi_doan_chi_hoi', 'Cán bộ Chi đoàn/Chi hội', 'Tạo hoạt động và minh chứng đơn vị', 40],
-  ['cong_tac_vien', 'Cộng tác viên', 'Nhập nháp hoạt động được phân công', 20],
-  ['nguoi_xem', 'Người xem', 'Chỉ xem dữ liệu được duyệt', 10],
+  ['super_admin', 'Super Admin', 'Toàn quyền hệ thống', 100, ['quan_tri_tai_khoan', 'quan_ly_hoat_dong']],
+  ['admin_doan_hoi', 'Admin Đoàn - Hội', 'Quản trị nghiệp vụ Đoàn - Hội', 80, ['quan_tri_tai_khoan', 'quan_ly_hoat_dong']],
+  ['ban_chap_hanh', 'Ban Chấp hành', 'Quản lý hoạt động đơn vị', 60, ['quan_ly_hoat_dong']],
+  ['can_bo_chi_doan_chi_hoi', 'Cán bộ Chi đoàn/Chi hội', 'Tạo hoạt động và minh chứng đơn vị', 40, ['quan_ly_hoat_dong']],
+  ['cong_tac_vien', 'Cộng tác viên', 'Nhập nháp hoạt động được phân công', 20, ['quan_ly_hoat_dong']],
+  ['nguoi_xem', 'Người xem', 'Chỉ xem dữ liệu được duyệt', 10, ['quan_ly_hoat_dong']],
 ] as const;
 
 export const UNITS = [

@@ -3,6 +3,7 @@ import { ImageWithFallback } from './figma/ImageWithFallback';
 
 interface FeaturedActivityHeroProps {
   activity: {
+    id: string;
     title: string;
     description: string;
     image: string;

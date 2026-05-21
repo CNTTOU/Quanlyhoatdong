@@ -26,31 +26,32 @@ const email = process.env.ADMIN_EMAIL ?? "doanhoicntt@ou.edu.vn";
 const password = process.env.ADMIN_PASSWORD ?? "Admin@123456";
 
 const permissions = [
-  ["xem_hoat_dong", "Xem hoạt động", "hoat_dong", false],
-  ["them_hoat_dong", "Thêm hoạt động", "hoat_dong", false],
-  ["sua_hoat_dong", "Sửa hoạt động", "hoat_dong", false],
-  ["xoa_hoat_dong", "Xóa hoạt động", "hoat_dong", true],
-  ["gui_duyet_hoat_dong", "Gửi duyệt hoạt động", "hoat_dong", false],
-  ["duyet_hoat_dong", "Duyệt hoạt động", "hoat_dong", false],
+  ["xem_hoat_dong", "Xem hoạt động", "quan_ly_hoat_dong", "hoat_dong", false],
+  ["them_hoat_dong", "Thêm hoạt động", "quan_ly_hoat_dong", "hoat_dong", false],
+  ["sua_hoat_dong", "Sửa hoạt động", "quan_ly_hoat_dong", "hoat_dong", false],
+  ["xoa_hoat_dong", "Xóa hoạt động", "quan_ly_hoat_dong", "hoat_dong", true],
+  ["gui_duyet_hoat_dong", "Gửi duyệt hoạt động", "quan_ly_hoat_dong", "hoat_dong", false],
+  ["duyet_hoat_dong", "Duyệt hoạt động", "quan_ly_hoat_dong", "hoat_dong", false],
   [
     "yeu_cau_bo_sung_hoat_dong",
     "Yêu cầu bổ sung hoạt động",
+    "quan_ly_hoat_dong",
     "hoat_dong",
     false,
   ],
-  ["tu_choi_hoat_dong", "Từ chối hoạt động", "hoat_dong", false],
-  ["quan_ly_minh_chung", "Quản lý minh chứng", "minh_chung", false],
-  ["xem_bao_cao", "Xem báo cáo", "bao_cao", false],
-  ["tao_bao_cao", "Tạo báo cáo", "bao_cao", false],
-  ["quan_ly_nguoi_dung", "Quản lý người dùng", "nguoi_dung", false],
-  ["tao_tai_khoan", "Tạo tài khoản", "nguoi_dung", false],
-  ["khoa_tai_khoan", "Khóa tài khoản", "nguoi_dung", true],
-  ["quan_ly_don_vi", "Quản lý đơn vị", "don_vi", false],
-  ["quan_ly_phan_quyen", "Quản lý phân quyền", "he_thong", true],
-  ["cai_dat_he_thong", "Cài đặt hệ thống", "he_thong", true],
-  ["xem_nhat_ky_he_thong", "Xem nhật ký hệ thống", "he_thong", false],
-  ["tao_goi_luu_tru", "Tạo gói lưu trữ", "luu_tru", true],
-  ["xoa_du_lieu_nam_hoc", "Xóa dữ liệu năm học", "luu_tru", true],
+  ["tu_choi_hoat_dong", "Từ chối hoạt động", "quan_ly_hoat_dong", "hoat_dong", false],
+  ["quan_ly_minh_chung", "Quản lý minh chứng", "quan_ly_hoat_dong", "minh_chung", false],
+  ["xem_bao_cao", "Xem báo cáo", "quan_ly_hoat_dong", "bao_cao", false],
+  ["tao_bao_cao", "Tạo báo cáo", "quan_ly_hoat_dong", "bao_cao", false],
+  ["quan_ly_nguoi_dung", "Quản lý người dùng", "quan_tri_tai_khoan", "nguoi_dung", false],
+  ["tao_tai_khoan", "Tạo tài khoản", "quan_tri_tai_khoan", "nguoi_dung", false],
+  ["khoa_tai_khoan", "Khóa tài khoản", "quan_tri_tai_khoan", "nguoi_dung", true],
+  ["quan_ly_don_vi", "Quản lý đơn vị", "quan_tri_tai_khoan", "don_vi", false],
+  ["quan_ly_phan_quyen", "Quản lý phân quyền", "quan_tri_tai_khoan", "he_thong", true],
+  ["cai_dat_he_thong", "Cài đặt hệ thống", "quan_ly_hoat_dong", "he_thong", true],
+  ["xem_nhat_ky_he_thong", "Xem nhật ký hệ thống", "quan_ly_hoat_dong", "he_thong", false],
+  ["tao_goi_luu_tru", "Tạo gói lưu trữ", "quan_ly_hoat_dong", "luu_tru", true],
+  ["xoa_du_lieu_nam_hoc", "Xóa dữ liệu năm học", "quan_ly_hoat_dong", "luu_tru", true],
 ];
 
 const roles = {
@@ -59,11 +60,13 @@ const roles = {
     mo_ta: "Toàn quyền hệ thống",
     cap_do: 100,
     danh_sach_quyen: permissions.map(([ma_quyen]) => ma_quyen),
+    danh_sach_he_thong: ["quan_tri_tai_khoan", "quan_ly_hoat_dong"],
   },
   admin_doan_hoi: {
     ten_vai_tro: "Admin Đoàn - Hội",
     mo_ta: "Quản trị nghiệp vụ Đoàn - Hội",
     cap_do: 80,
+    danh_sach_he_thong: ["quan_tri_tai_khoan", "quan_ly_hoat_dong"],
     danh_sach_quyen: [
       "xem_hoat_dong",
       "them_hoat_dong",
@@ -107,6 +110,7 @@ const uid = credential.user.uid;
 for (const [
   ma_quyen,
   ten_quyen,
+  ma_he_thong,
   nhom_quyen,
   la_quyen_nguy_hiem,
 ] of permissions) {
@@ -114,6 +118,7 @@ for (const [
     doc(db, "quyen", ma_quyen),
     {
       ma_quyen,
+      ma_he_thong,
       ten_quyen,
       nhom_quyen,
       mo_ta: ten_quyen,
@@ -123,6 +128,21 @@ for (const [
     { merge: true },
   );
 }
+
+await setDoc(
+  doc(db, "he_thong", "quan_ly_hoat_dong"),
+  {
+    ma_he_thong: "quan_ly_hoat_dong",
+    ten_he_thong: "Quản lý hoạt động",
+    mo_ta: "Theo dõi hoạt động, minh chứng, duyệt và báo cáo theo phân quyền.",
+    duong_dan: "/hoat-dong/dashboard",
+    trang_thai: "dang_su_dung",
+    thu_tu: 1,
+    ngay_tao: serverTimestamp(),
+    ngay_cap_nhat: serverTimestamp(),
+  },
+  { merge: true },
+);
 
 for (const [ma_vai_tro, role] of Object.entries(roles)) {
   await setDoc(
@@ -190,6 +210,9 @@ await setDoc(
     ngay_tao: serverTimestamp(),
     nguoi_tao: "bootstrap_script",
     ngay_cap_nhat: serverTimestamp(),
+    quyen_bo_sung: [],
+    quyen_bi_chan: [],
+    danh_sach_he_thong: ["quan_tri_tai_khoan", "quan_ly_hoat_dong"],
   },
   { merge: true },
 );

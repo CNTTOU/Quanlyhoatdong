@@ -61,7 +61,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
+        await authService.syncActivityAuth();
         setUser(profile);
+      } catch (error) {
+        setUser(null);
+        setAuthError(error instanceof Error ? error.message : 'Không thể xác thực tài khoản.');
       } finally {
         setLoading(false);
         setAuthReady(true);

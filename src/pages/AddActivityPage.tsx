@@ -11,19 +11,220 @@ import {
   Upload,
   Link as LinkIcon,
 } from 'lucide-react';
+import { FormEvent, useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { collection, getDocs, orderBy, query } from 'firebase/firestore';
 import { FormCard } from '@/components/FormCard';
+import { useAuth } from '@/contexts/AuthContext';
+import { createActivityWithId, getActivityById, getActivityFormOptions, submitActivity, updateActivity, type ActivityFormInput } from '@/services/activityService';
+import { identityDb } from '@/lib/firebase';
+import { getCached } from '@/services/cache';
+
+type UnitTypeOption = { value: string; label: string };
+
+function formatUnitTypeLabel(value: string) {
+  if (!value) return '';
+  const specialLabels: Record<string, string> = {
+    clb: 'CLB',
+    cau_lac_bo: 'Câu lạc bộ',
+    doi_nhom: 'Đội/Nhóm',
+    chi_doan: 'Chi đoàn',
+    chi_hoi: 'Chi hội',
+    chi_doan_chi_hoi: 'Chi Đoàn - Chi Hội',
+    doan_khoa: 'Đoàn khoa',
+    lien_chi_hoi: 'Liên chi Hội',
+    'doan-hoi-khoa': 'Đoàn - Hội Khoa',
+  };
+  if (specialLabels[value]) return specialLabels[value];
+  return value
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function toDateTimeLocal(value: unknown) {
+  const date =
+    value && typeof value === 'object' && 'toDate' in value && typeof value.toDate === 'function'
+      ? value.toDate() as Date
+      : typeof value === 'string' && value
+        ? new Date(value)
+        : null;
+  if (!date || Number.isNaN(date.getTime())) return '';
+  const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return offsetDate.toISOString().slice(0, 16);
+}
+
+const emptyForm: ActivityFormInput = {
+  ten_hoat_dong: '',
+  ma_nam_hoc: '',
+  ma_loai: '',
+  ma_don_vi: '',
+  cap_to_chuc: '',
+  thoi_gian_bat_dau: '',
+  thoi_gian_ket_thuc: '',
+  dia_diem: '',
+  doi_tuong_tham_gia: '',
+  so_luong_tham_gia: 0,
+  muc_tieu: '',
+  noi_dung: '',
+  ket_qua: '',
+  link_bai_viet: '',
+  link_thu_muc_minh_chung: '',
+  anh_dai_dien: '',
+};
 
 export function AddActivityPage() {
+  const navigate = useNavigate();
+  const { id } = useParams();
+  const { user } = useAuth();
+  const [form, setForm] = useState<ActivityFormInput>(emptyForm);
+  const [years, setYears] = useState<Array<{ ma_nam_hoc: string; ten_nam_hoc: string; la_nam_hoc_hien_tai?: boolean }>>([]);
+  const [activityTypes, setActivityTypes] = useState<Array<{ ma_loai: string; ten_loai: string }>>([]);
+  const [units, setUnits] = useState<Array<{ ma_don_vi: string; ten_don_vi: string; loai_don_vi: string }>>([]);
+  const [unitTypes, setUnitTypes] = useState<UnitTypeOption[]>([]);
+  const [canEditUnit, setCanEditUnit] = useState(false);
+  const [currentStatus, setCurrentStatus] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+  const isEditing = Boolean(id);
+
+  useEffect(() => {
+    if (!user) return;
+    Promise.all([
+      getActivityFormOptions(user),
+      getCached('unit-types:all', 5 * 60 * 1000, async () => getDocs(query(collection(identityDb, 'loai_don_vi'), orderBy('ten_loai', 'asc')))),
+      id ? getActivityById(id) : Promise.resolve(null),
+    ])
+      .then(([options, unitTypeSnap, activity]) => {
+        const loadedUnitTypes = unitTypeSnap.docs
+          .map((item) => {
+            const data = item.data();
+            const value = String(data.ma_loai ?? item.id);
+            return {
+              value,
+              label: String(data.ten_loai || formatUnitTypeLabel(value)),
+              trang_thai: String(data.trang_thai ?? 'dang_hoat_dong'),
+            };
+          })
+          .filter((item) => item.trang_thai !== 'ngung_hoat_dong')
+          .map(({ value, label }) => ({ value, label }));
+        const unitTypeFallbacks = options.units.map((unit) => ({ value: unit.loai_don_vi, label: formatUnitTypeLabel(unit.loai_don_vi) })).filter((item) => item.value);
+        const nextUnitTypes = Array.from(new Map([...unitTypeFallbacks, ...loadedUnitTypes].map((item) => [item.value, item])).values());
+
+        setYears(options.years);
+        setActivityTypes(options.activityTypes);
+        setUnits(options.units);
+        setCanEditUnit(Boolean(options.canEditUnit));
+        setUnitTypes(nextUnitTypes);
+        if (activity) {
+          setCurrentStatus(String(activity.trang_thai || ''));
+          setForm({
+            ten_hoat_dong: String(activity.ten_hoat_dong || ''),
+            ma_nam_hoc: String(activity.ma_nam_hoc || ''),
+            ma_loai: String(activity.ma_loai || ''),
+            ma_don_vi: String(activity.ma_don_vi || ''),
+            cap_to_chuc: String(activity.cap_to_chuc || ''),
+            thoi_gian_bat_dau: toDateTimeLocal(activity.thoi_gian_bat_dau),
+            thoi_gian_ket_thuc: toDateTimeLocal(activity.thoi_gian_ket_thuc),
+            dia_diem: String(activity.dia_diem || ''),
+            doi_tuong_tham_gia: String(activity.doi_tuong_tham_gia || ''),
+            so_luong_tham_gia: Number(activity.so_luong_tham_gia || 0),
+            muc_tieu: String(activity.muc_tieu || ''),
+            noi_dung: String(activity.noi_dung || ''),
+            ket_qua: String(activity.ket_qua || ''),
+            link_bai_viet: String(activity.link_bai_viet || ''),
+            link_thu_muc_minh_chung: String(activity.link_thu_muc_minh_chung || ''),
+            anh_dai_dien: String(activity.anh_dai_dien || ''),
+          });
+          return;
+        }
+
+        const defaultUnit = options.units.length === 1 ? options.units[0] : options.units.find((unit) => unit.ma_don_vi === user.ma_don_vi);
+        setForm((current) => ({
+          ...current,
+          ma_nam_hoc: '',
+          ma_loai: '',
+          ma_don_vi: defaultUnit?.ma_don_vi ?? '',
+          cap_to_chuc: defaultUnit?.loai_don_vi ?? '',
+        }));
+      })
+      .catch((error) => setMessage(error instanceof Error ? error.message : 'Không thể tải dữ liệu form.'));
+  }, [id, user]);
+
+  function updateField(field: keyof ActivityFormInput, value: string | number) {
+    setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function updateUnit(maDonVi: string) {
+    const selectedUnit = units.find((unit) => unit.ma_don_vi === maDonVi);
+    setForm((current) => ({
+      ...current,
+      ma_don_vi: maDonVi,
+      cap_to_chuc: selectedUnit?.loai_don_vi ?? '',
+    }));
+  }
+
+  function validateForm() {
+    if (!form.ten_hoat_dong || !form.ma_nam_hoc || !form.ma_loai || !form.ma_don_vi) return 'Vui lòng nhập đầy đủ tên, năm học, loại và đơn vị.';
+    if (!form.cap_to_chuc || !form.thoi_gian_bat_dau || !form.thoi_gian_ket_thuc || !form.dia_diem) return 'Vui lòng nhập đầy đủ cấp tổ chức, thời gian và địa điểm.';
+    if (!form.muc_tieu || !form.noi_dung || !form.ket_qua) return 'Vui lòng nhập mục tiêu, nội dung và kết quả.';
+    if (new Date(form.thoi_gian_bat_dau) > new Date(form.thoi_gian_ket_thuc)) return 'Thời gian bắt đầu phải nhỏ hơn thời gian kết thúc.';
+    return '';
+  }
+
+  async function save(status: 'ban_nhap' | 'cho_duyet') {
+    if (!user) return;
+    const error = validateForm();
+    if (error) {
+      setMessage(error);
+      return;
+    }
+
+    setSaving(true);
+    setMessage('');
+    try {
+      if (id) {
+        const updateData = {
+          ...form,
+          ...(status === 'cho_duyet' ? { ly_do_yeu_cau_bo_sung: '' } : {}),
+        };
+        await updateActivity(id, updateData, user);
+        if (status === 'cho_duyet') {
+          await submitActivity(id, user);
+        }
+        navigate(`/activities/${id}`);
+        return;
+      }
+
+      const newId = await createActivityWithId(form, user, status);
+      navigate(`/activities/${newId}`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Không thể lưu hoạt động.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    save('cho_duyet');
+  }
+
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <div className="mb-6">
-        <h2 className="text-gray-900 mb-1">Thêm hoạt động mới</h2>
+        <h2 className="text-gray-900 mb-1">{isEditing ? 'Chỉnh sửa hoạt động' : 'Thêm hoạt động mới'}</h2>
         <p className="text-sm text-gray-500">
-          Nhập thông tin chi tiết về hoạt động Đoàn - Hội
+          {currentStatus === 'can_bo_sung'
+            ? 'Bổ sung thông tin, minh chứng và gửi duyệt lại'
+            : 'Nhập thông tin chi tiết về hoạt động Đoàn - Hội'}
         </p>
       </div>
 
-      <form>
+      {message && <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">{message}</div>}
+
+      <form onSubmit={handleSubmit}>
         {/* Card 1: Thông tin cơ bản */}
         <FormCard
           icon={FileText}
@@ -37,22 +238,30 @@ export function AddActivityPage() {
               </label>
               <input
                 type="text"
-                placeholder="Ví dụ: Ngày hội tình nguyện mùa hè xanh 2026"
+                value={form.ten_hoat_dong}
+                onChange={(event) => updateField('ten_hoat_dong', event.target.value)}
+                placeholder="Nhập tên hoạt động"
                 className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
 
             <div>
               <label className="block text-sm text-gray-700 mb-2">
+                Năm học <span className="text-red-500">*</span>
+              </label>
+              <select value={form.ma_nam_hoc} onChange={(event) => updateField('ma_nam_hoc', event.target.value)} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <option value="">Chọn năm học</option>
+                {years.map((year) => <option key={year.ma_nam_hoc} value={year.ma_nam_hoc}>{year.ten_nam_hoc}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm text-gray-700 mb-2">
                 Loại hoạt động <span className="text-red-500">*</span>
               </label>
-              <select className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+              <select value={form.ma_loai} onChange={(event) => updateField('ma_loai', event.target.value)} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                 <option value="">Chọn loại hoạt động</option>
-                <option value="hoc-thuat">Học thuật</option>
-                <option value="tinh-nguyen">Tình nguyện</option>
-                <option value="ky-nang">Kỹ năng</option>
-                <option value="sv5t">SV5T</option>
-                <option value="truyen-thong">Truyền thông</option>
+                {activityTypes.map((type) => <option key={type.ma_loai} value={type.ma_loai}>{type.ten_loai}</option>)}
               </select>
             </div>
 
@@ -60,27 +269,32 @@ export function AddActivityPage() {
               <label className="block text-sm text-gray-700 mb-2">
                 Đơn vị tổ chức <span className="text-red-500">*</span>
               </label>
-              <select className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+              <select
+                value={form.ma_don_vi}
+                onChange={(event) => updateUnit(event.target.value)}
+                disabled={!canEditUnit}
+                className={`w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${canEditUnit ? 'bg-gray-50' : 'bg-gray-100 text-gray-700 cursor-not-allowed'}`}
+              >
                 <option value="">Chọn đơn vị</option>
-                <option value="doan-cntt">Đoàn CNTT</option>
-                <option value="doan-khoa-hoc">Đoàn Khoa học</option>
-                <option value="hoi-svhs">Hội SVHS</option>
-                <option value="hoi-chu-thap-do">Hội chữ thập đỏ</option>
+                {units.map((unit) => <option key={unit.ma_don_vi} value={unit.ma_don_vi}>{unit.ten_don_vi}</option>)}
               </select>
+              {!canEditUnit && <p className="mt-1 text-xs text-gray-500">Đơn vị được lấy theo tài khoản đang đăng nhập.</p>}
             </div>
 
             <div>
               <label className="block text-sm text-gray-700 mb-2">
                 Cấp tổ chức <span className="text-red-500">*</span>
               </label>
-              <select className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                <option value="">Chọn cấp tổ chức</option>
-                <option value="chi-hoi">Chi hội</option>
-                <option value="chi-doan">Chi đoàn</option>
-                <option value="lien-chi-hoi">Liên chi Hội</option>
-                <option value="doan-khoa">Đoàn khoa</option>
-                <option value="cap-truong">Cấp Trường</option>
+              <select
+                value={form.cap_to_chuc}
+                disabled={!canEditUnit}
+                onChange={(event) => updateField('cap_to_chuc', event.target.value)}
+                className={`w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${canEditUnit ? 'bg-gray-50' : 'bg-gray-100 text-gray-700 cursor-not-allowed'}`}
+              >
+                <option value="">Tự động theo đơn vị tổ chức</option>
+                {unitTypes.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
               </select>
+              {!canEditUnit && <p className="mt-1 text-xs text-gray-500">Cấp tổ chức được khóa theo loại đơn vị của tài khoản.</p>}
             </div>
 
             <div>
@@ -89,6 +303,8 @@ export function AddActivityPage() {
               </label>
               <input
                 type="text"
+                value={form.doi_tuong_tham_gia}
+                onChange={(event) => updateField('doi_tuong_tham_gia', event.target.value)}
                 placeholder="Ví dụ: Sinh viên K66, K67"
                 className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
@@ -102,6 +318,8 @@ export function AddActivityPage() {
                 <Calendar className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="datetime-local"
+                  value={form.thoi_gian_bat_dau}
+                  onChange={(event) => updateField('thoi_gian_bat_dau', event.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
@@ -115,6 +333,8 @@ export function AddActivityPage() {
                 <Calendar className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="datetime-local"
+                  value={form.thoi_gian_ket_thuc}
+                  onChange={(event) => updateField('thoi_gian_ket_thuc', event.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
@@ -128,6 +348,8 @@ export function AddActivityPage() {
                 <MapPin className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
+                  value={form.dia_diem}
+                  onChange={(event) => updateField('dia_diem', event.target.value)}
                   placeholder="Ví dụ: Hội trường A, Giảng đường B"
                   className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
@@ -149,6 +371,8 @@ export function AddActivityPage() {
               </label>
               <textarea
                 rows={3}
+                value={form.muc_tieu}
+                onChange={(event) => updateField('muc_tieu', event.target.value)}
                 placeholder="Mô tả mục tiêu, ý nghĩa của hoạt động..."
                 className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               />
@@ -160,6 +384,8 @@ export function AddActivityPage() {
               </label>
               <textarea
                 rows={4}
+                value={form.noi_dung}
+                onChange={(event) => updateField('noi_dung', event.target.value)}
                 placeholder="Mô tả cách thức tổ chức, các hoạt động cụ thể..."
                 className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               />
@@ -171,6 +397,8 @@ export function AddActivityPage() {
               </label>
               <textarea
                 rows={3}
+                value={form.ket_qua}
+                onChange={(event) => updateField('ket_qua', event.target.value)}
                 placeholder="Mô tả kết quả, hiệu quả đạt được sau hoạt động..."
                 className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               />
@@ -185,6 +413,8 @@ export function AddActivityPage() {
                   <Users className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="number"
+                    value={form.so_luong_tham_gia || ''}
+                    onChange={(event) => updateField('so_luong_tham_gia', Number(event.target.value))}
                     placeholder="Ví dụ: 450"
                     className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
@@ -268,6 +498,8 @@ export function AddActivityPage() {
                   <LinkIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="url"
+                    value={form.link_bai_viet}
+                    onChange={(event) => updateField('link_bai_viet', event.target.value)}
                     placeholder="https://facebook.com/..."
                     className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
@@ -282,6 +514,8 @@ export function AddActivityPage() {
                   <LinkIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="url"
+                    value={form.link_thu_muc_minh_chung}
+                    onChange={(event) => updateField('link_thu_muc_minh_chung', event.target.value)}
                     placeholder="https://drive.google.com/..."
                     className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
@@ -296,6 +530,7 @@ export function AddActivityPage() {
           <div className="flex items-center justify-between flex-wrap gap-4">
             <button
               type="button"
+              onClick={() => navigate('/activities')}
               className="flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
             >
               <X className="w-5 h-5" />
@@ -305,18 +540,21 @@ export function AddActivityPage() {
             <div className="flex items-center gap-3">
               <button
                 type="button"
+                disabled={saving}
+                onClick={() => save('ban_nhap')}
                 className="flex items-center gap-2 px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
               >
                 <Save className="w-5 h-5" />
-                <span>Lưu nháp</span>
+                <span>{isEditing ? 'Lưu cập nhật' : 'Lưu nháp'}</span>
               </button>
 
               <button
                 type="submit"
-                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-all shadow-lg shadow-blue-500/30"
+                disabled={saving}
+                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-all shadow-lg shadow-blue-500/30 disabled:opacity-60"
               >
                 <Send className="w-5 h-5" />
-                <span>Gửi duyệt</span>
+                <span>{isEditing ? 'Gửi duyệt lại' : 'Gửi duyệt'}</span>
               </button>
             </div>
           </div>

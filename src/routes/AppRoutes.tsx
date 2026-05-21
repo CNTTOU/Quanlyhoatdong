@@ -55,6 +55,7 @@ function ActivityListRoute() {
   return (
     <ActivityListPage
       onViewDetail={(id) => navigate(`/activities/${id}`)}
+      onEdit={(id) => navigate(`/activities/${id}/edit`)}
       onCreate={() => navigate(paths.activityNew)}
     />
   );
@@ -77,6 +78,7 @@ export function AppRoutes() {
           <Route path={paths.dashboard} element={<DashboardPage />} />
           <Route path={paths.activities} element={<ProtectedRoute requiredPermissions={['xem_hoat_dong']}><ActivityListRoute /></ProtectedRoute>} />
           <Route path={paths.activityNew} element={<ProtectedRoute requiredPermissions={['them_hoat_dong']}><AddActivityPage /></ProtectedRoute>} />
+          <Route path={paths.activityEdit} element={<ProtectedRoute requiredPermissions={['sua_hoat_dong']}><AddActivityPage /></ProtectedRoute>} />
           <Route path={paths.activityDetail} element={<ProtectedRoute requiredPermissions={['xem_hoat_dong']}><ActivityDetailPage /></ProtectedRoute>} />
           <Route path={paths.evidences} element={<ProtectedRoute requiredPermissions={['quan_ly_minh_chung']}><EvidenceLibraryPage /></ProtectedRoute>} />
           <Route path={paths.approval} element={<ProtectedRoute requiredPermissions={['duyet_hoat_dong']}><ApprovalPage /></ProtectedRoute>} />

@@ -3,14 +3,14 @@ import { ImageWithFallback } from './figma/ImageWithFallback';
 
 interface FeaturedActivityCardProps {
   activity: {
-    id: number;
+    id: string | number;
     title: string;
     category: string;
     date: string;
     unit: string;
     image: string;
   };
-  onViewDetail: (id: number) => void;
+  onViewDetail: (id: string | number) => void;
 }
 
 const categoryColors = {

@@ -1,9 +1,63 @@
+import { useEffect, useState } from 'react';
 import { LayoutGrid, LogOut, Search, Bell, User } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { AUTH_LOGOUT_FLAG, goToLoginAfterLogout } from '@/utils/externalApps';
+import { getSystemSettings, SYSTEM_SETTINGS_UPDATED_EVENT, type SystemSettings } from '@/services/settingService';
+
+function getGoogleDriveFileId(url: string) {
+  const match = url.match(/drive\.google\.com\/file\/d\/([^/]+)/) ?? url.match(/[?&]id=([^&]+)/);
+  return match?.[1] ?? '';
+}
+
+function getLogoUrlCandidates(url: string) {
+  const trimmedUrl = url.trim();
+  const driveFileId = getGoogleDriveFileId(trimmedUrl);
+  if (!driveFileId) return [trimmedUrl];
+  return [
+    `https://lh3.googleusercontent.com/d/${driveFileId}=w1000`,
+    `https://drive.google.com/uc?export=view&id=${driveFileId}`,
+    `https://drive.google.com/thumbnail?id=${driveFileId}&sz=w1000`,
+  ];
+}
+
+function HeaderLogo({ logoUrl, systemName }: { logoUrl: string; systemName: string }) {
+  const [candidateIndex, setCandidateIndex] = useState(0);
+  const candidates = getLogoUrlCandidates(logoUrl);
+  const src = candidates[candidateIndex] ?? '';
+
+  useEffect(() => {
+    setCandidateIndex(0);
+  }, [logoUrl]);
+
+  if (!src) return null;
+
+  return (
+    <div className="flex h-10 w-28 shrink-0 items-center justify-center overflow-hidden">
+      <img
+        src={src}
+        alt={systemName}
+        className="max-h-full max-w-full object-contain"
+        onError={() => setCandidateIndex((current) => current + 1)}
+      />
+    </div>
+  );
+}
 
 export function Header() {
   const { user, logout } = useAuth();
+  const [settings, setSettings] = useState<SystemSettings | null>(null);
+  const systemName = settings?.ten_he_thong || 'Hệ thống hoạt động';
+
+  useEffect(() => {
+    getSystemSettings().then(setSettings).catch(() => undefined);
+
+    const handleSettingsUpdated = (event: Event) => {
+      setSettings((event as CustomEvent<SystemSettings>).detail);
+    };
+
+    window.addEventListener(SYSTEM_SETTINGS_UPDATED_EVENT, handleSettingsUpdated);
+    return () => window.removeEventListener(SYSTEM_SETTINGS_UPDATED_EVENT, handleSettingsUpdated);
+  }, []);
 
   const handleLogout = async () => {
     sessionStorage.setItem(AUTH_LOGOUT_FLAG, '1');
@@ -13,8 +67,9 @@ export function Header() {
 
   return (
     <header className="h-16 bg-white border-b border-gray-200 fixed top-0 right-0 left-64 z-10 flex items-center justify-between px-6">
-      <div className="flex-1 max-w-xl">
-        <div className="relative">
+      <div className="flex flex-1 items-center gap-4">
+        {settings?.logo_url && <HeaderLogo logoUrl={settings.logo_url} systemName={systemName} />}
+        <div className="relative max-w-xl flex-1">
           <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"

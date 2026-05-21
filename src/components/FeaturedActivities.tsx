@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Calendar, Users, MapPin } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
-import { getInterfaceDocument } from '@/services/interfaceDataService';
 
 interface FeaturedActivitiesProps {
   year: number;
@@ -20,9 +19,7 @@ export function FeaturedActivities({ year }: FeaturedActivitiesProps) {
   const [featured, setFeatured] = useState<FeaturedActivity[]>([]);
 
   useEffect(() => {
-    getInterfaceDocument<{ dashboardFeatured: FeaturedActivity[] }>('du_lieu_bieu_do_dashboard', {
-      dashboardFeatured: [],
-    }).then((data) => setFeatured(data.dashboardFeatured));
+    setFeatured([]);
   }, [year]);
 
   return (

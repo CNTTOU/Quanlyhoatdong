@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { getInterfaceDocument } from '@/services/interfaceDataService';
 
 interface RecentActivitiesProps {
   year: number;
+  activities?: RecentActivity[];
 }
 
 type RecentActivity = {
-  id: number;
+  id: string;
   name: string;
   unit: string;
   time: string;
@@ -14,14 +14,16 @@ type RecentActivity = {
   statusText: string;
 };
 
-export function RecentActivities({ year }: RecentActivitiesProps) {
-  const [activities, setActivities] = useState<RecentActivity[]>([]);
+export function RecentActivities({ year, activities: inputActivities }: RecentActivitiesProps) {
+  const [activities, setActivities] = useState<RecentActivity[]>(inputActivities ?? []);
 
   useEffect(() => {
-    getInterfaceDocument<{ recentActivities: RecentActivity[] }>('du_lieu_bieu_do_dashboard', {
-      recentActivities: [],
-    }).then((data) => setActivities(data.recentActivities));
-  }, [year]);
+    if (inputActivities) {
+      setActivities(inputActivities);
+      return;
+    }
+    setActivities([]);
+  }, [year, inputActivities]);
 
   return (
     <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">

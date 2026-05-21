@@ -15,13 +15,22 @@ import {
   Edit,
   Download,
   Eye,
+  Send,
+  AlertCircle,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { collection, doc, getDoc, getDocs, limit, query, Timestamp, where } from 'firebase/firestore';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { ActivityDetailBanner } from '@/components/ActivityDetailBanner';
 import { InfoCard } from '@/components/InfoCard';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
-import { getInterfaceDocument } from '@/services/interfaceDataService';
+import { getActivityById } from '@/services/activityService';
+import { getEvidenceByActivity } from '@/services/evidenceService';
+import { defaultActivityStatuses, getActivityStatusSettings, type ActivityStatusSetting } from '@/services/settingService';
+import { identityDb } from '@/lib/firebase';
+import type { MinhChung } from '@/types/firebase';
+import { useAuth } from '@/contexts/AuthContext';
 
 type ActivityDetailData = {
   id: number;
@@ -40,29 +49,163 @@ type ActivityDetailData = {
   content: string;
   result: string;
   note: string;
-  fbLink: string;
-  driveLink: string;
+  rawStatus: string;
+  evidenceLinks: Array<{ label: string; url: string }>;
+  attachments: Array<{ name: string; url: string }>;
   creator: { name: string; role: string; avatar?: string };
   history: Array<{ date: string; action: string; by: string }>;
   images: string[];
 };
 
+function isUrl(value: string) {
+  return /^https?:\/\//i.test(value.trim());
+}
+
+async function getUnitTypeName(typeId: string, unitId: string) {
+  let resolvedTypeId = typeId.trim();
+
+  if (!resolvedTypeId && unitId) {
+    const unitSnap = await getDoc(doc(identityDb, 'don_vi', unitId));
+    resolvedTypeId = String(unitSnap.data()?.loai_don_vi || '').trim();
+  }
+
+  if (!resolvedTypeId) return '';
+
+  const unitTypeSnap = await getDoc(doc(identityDb, 'loai_don_vi', resolvedTypeId));
+  if (unitTypeSnap.exists()) {
+    return String(unitTypeSnap.data().ten_loai || resolvedTypeId);
+  }
+
+  const fallbackSnap = await getDocs(query(collection(identityDb, 'loai_don_vi'), where('ma_loai', '==', resolvedTypeId), limit(1)));
+  if (!fallbackSnap.empty) {
+    return String(fallbackSnap.docs[0].data().ten_loai || resolvedTypeId);
+  }
+
+  return resolvedTypeId;
+}
+
+function toEvidenceUrl(evidence: MinhChung) {
+  return String(evidence.duong_dan_file || evidence.duong_dan_thu_muc || '').trim();
+}
+
+function isFileEvidence(evidence: MinhChung) {
+  const type = String(evidence.loai_minh_chung || '').toLowerCase();
+  const format = String(evidence.dinh_dang_file || '').toLowerCase();
+  return ['file', 'tep', 'pdf', 'word', 'excel', 'tai_lieu'].includes(type) || Boolean(format);
+}
+
+function toDisplayDate(value: unknown) {
+  if (value instanceof Timestamp) return value.toDate().toLocaleString('vi-VN');
+  if (typeof value === 'string' && value) return new Date(value).toLocaleString('vi-VN');
+  return '';
+}
+
+function toBannerStatus(status: string) {
+  if (status === 'ban_nhap') return 'draft';
+  if (status === 'cho_duyet') return 'pending';
+  if (status === 'da_duyet') return 'approved';
+  if (status === 'can_bo_sung') return 'need-update';
+  return 'draft';
+}
+
+function getStatusMeta(statuses: ActivityStatusSetting[], status: ActivityDetailData['status']) {
+  const config = statuses.find((item) => item.khoa_hien_thi === status);
+  return {
+    label: config?.ten_hien_thi ?? status,
+    color: config?.mau_hien_thi ?? '#6B7280',
+  };
+}
+
 export function ActivityDetailPage() {
+  const { id } = useParams();
+  const { hasPermission } = useAuth();
+  const navigate = useNavigate();
   const [activityData, setActivityData] = useState<ActivityDetailData | null>(null);
+  const [statuses, setStatuses] = useState<ActivityStatusSetting[]>(defaultActivityStatuses);
+  const [message, setMessage] = useState('');
 
   useEffect(() => {
-    getInterfaceDocument<ActivityDetailData | null>('chi_tiet_hoat_dong_mac_dinh', null).then(setActivityData);
+    if (!id) return;
+
+    Promise.all([getActivityById(id), getEvidenceByActivity(id)])
+      .then(async ([activity, evidences]) => {
+        if (!activity) {
+          setActivityData(null);
+          return;
+        }
+
+        const level = await getUnitTypeName(String(activity.cap_to_chuc || ''), String(activity.ma_don_vi || ''));
+        const activityLinks = [
+          { label: 'Bài truyền thông', url: String(activity.link_bai_viet || '').trim() },
+          { label: 'Thư mục minh chứng', url: String(activity.link_thu_muc_minh_chung || '').trim() },
+        ].filter((link) => isUrl(link.url));
+        const evidenceLinks = evidences
+          .filter((evidence) => !isFileEvidence(evidence))
+          .map((evidence) => ({
+            label: String(evidence.ten_minh_chung || 'Minh chứng'),
+            url: toEvidenceUrl(evidence),
+          }))
+          .filter((link) => isUrl(link.url));
+        const attachments = evidences
+          .filter(isFileEvidence)
+          .map((evidence) => ({
+            name: String(evidence.ten_minh_chung || evidence.duong_dan_file || 'File đính kèm'),
+            url: toEvidenceUrl(evidence),
+          }))
+          .filter((file) => isUrl(file.url));
+
+        setActivityData({
+          id: 0,
+          title: activity.ten_hoat_dong,
+          category: activity.ten_loai,
+          unit: activity.ten_don_vi,
+          status: toBannerStatus(activity.trang_thai) as ActivityDetailData['status'],
+          rawStatus: String(activity.trang_thai || ''),
+          image: String(activity.anh_dai_dien || ''),
+          startDate: toDisplayDate(activity.thoi_gian_bat_dau),
+          endDate: toDisplayDate(activity.thoi_gian_ket_thuc),
+          location: String(activity.dia_diem || ''),
+          level,
+          target: String(activity.doi_tuong_tham_gia || ''),
+          participants: Number(activity.so_luong_tham_gia || 0),
+          objective: String(activity.muc_tieu || ''),
+          content: String(activity.noi_dung || ''),
+          result: String(activity.ket_qua || ''),
+          note: String(activity.ly_do_yeu_cau_bo_sung || ''),
+          evidenceLinks: [...activityLinks, ...evidenceLinks],
+          attachments,
+          creator: { name: activity.ten_nguoi_tao, role: 'Người tạo' },
+          history: [
+            { date: toDisplayDate(activity.ngay_tao), action: 'Tạo hoạt động', by: activity.ten_nguoi_tao },
+            ...(activity.ngay_gui_duyet ? [{ date: toDisplayDate(activity.ngay_gui_duyet), action: 'Gửi duyệt', by: activity.ten_nguoi_tao }] : []),
+            ...(activity.ngay_duyet ? [{ date: toDisplayDate(activity.ngay_duyet), action: 'Duyệt hoạt động', by: String(activity.ten_nguoi_duyet || '') }] : []),
+          ],
+          images: activity.anh_dai_dien ? [String(activity.anh_dai_dien)] : [],
+        });
+      })
+      .catch((error) => setMessage(error instanceof Error ? error.message : 'Không thể tải chi tiết hoạt động.'));
+  }, [id]);
+
+  useEffect(() => {
+    getActivityStatusSettings().then(setStatuses).catch(() => undefined);
   }, []);
 
   if (!activityData) {
     return (
       <div className="p-6">
+        {message && <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">{message}</div>}
         <div className="bg-white border border-gray-100 rounded-xl p-8 text-center text-gray-500">
           Chưa có dữ liệu chi tiết hoạt động.
         </div>
       </div>
     );
   }
+
+  const statusMeta = getStatusMeta(statuses, activityData.status);
+  const canEditActivity = hasPermission('sua_hoat_dong') && activityData.rawStatus !== 'da_duyet';
+  const canResubmit = activityData.rawStatus === 'can_bo_sung' || activityData.rawStatus === 'cho_duyet' || activityData.rawStatus === 'ban_nhap';
+  const canCreateReport = hasPermission('tao_bao_cao');
+  const hasActionButtons = canEditActivity || canCreateReport || activityData.images.length > 0;
 
   return (
     <div className="p-6">
@@ -82,21 +225,52 @@ export function ActivityDetailPage() {
         image={activityData.image}
       />
 
-      {/* Action Buttons */}
-      <div className="flex items-center gap-3 mb-6">
-        <button className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-all shadow-lg shadow-blue-500/30">
-          <Edit className="w-4 h-4" />
-          <span>Chỉnh sửa</span>
-        </button>
-        <button className="flex items-center gap-2 px-5 py-2.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-          <Download className="w-4 h-4" />
-          <span>Xuất báo cáo</span>
-        </button>
-        <button className="flex items-center gap-2 px-5 py-2.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-          <Eye className="w-4 h-4" />
-          <span>Xem ảnh</span>
-        </button>
-      </div>
+      {activityData.rawStatus === 'can_bo_sung' && (
+        <div className="mb-6 rounded-xl border border-orange-200 bg-orange-50 p-4 text-orange-800">
+          <div className="mb-2 flex items-center gap-2 font-medium">
+            <AlertCircle className="h-5 w-5" />
+            <span>Hoạt động cần bổ sung minh chứng</span>
+          </div>
+          <p className="text-sm leading-relaxed">
+            {activityData.note || 'Cấp duyệt đã yêu cầu bổ sung thông tin hoặc minh chứng cho hoạt động này.'}
+          </p>
+        </div>
+      )}
+
+      {hasActionButtons && (
+        <div className="flex items-center gap-3 mb-6">
+          {canEditActivity && (
+            <button
+              onClick={() => navigate(`/activities/${id}/edit`)}
+              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-all shadow-lg shadow-blue-500/30"
+            >
+              <Edit className="w-4 h-4" />
+              <span>{activityData.rawStatus === 'can_bo_sung' ? 'Bổ sung / chỉnh sửa' : 'Chỉnh sửa'}</span>
+            </button>
+          )}
+          {canEditActivity && canResubmit && activityData.rawStatus === 'can_bo_sung' && (
+            <button
+              onClick={() => navigate(`/activities/${id}/edit`)}
+              className="flex items-center gap-2 px-5 py-2.5 bg-orange-100 text-orange-700 border border-orange-200 rounded-lg hover:bg-orange-200 transition-colors"
+            >
+              <Send className="w-4 h-4" />
+              <span>Gửi lại sau bổ sung</span>
+            </button>
+          )}
+          {canCreateReport && (
+            <button className="flex items-center gap-2 px-5 py-2.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+              <Download className="w-4 h-4" />
+              <span>Xuất báo cáo</span>
+            </button>
+          )}
+          {activityData.images.length > 0 && (
+            <button className="flex items-center gap-2 px-5 py-2.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+              <Eye className="w-4 h-4" />
+              <span>Xem ảnh</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Two Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -170,64 +344,56 @@ export function ActivityDetailPage() {
         <div className="space-y-6">
           <InfoCard title="Trạng thái" icon={CheckCircle}>
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <CheckCircle className="w-6 h-6 text-green-600" />
+              <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${statusMeta.color}1A` }}>
+                <CheckCircle className="w-6 h-6" style={{ color: statusMeta.color }} />
               </div>
               <div>
                 <p className="text-sm text-gray-500">Trạng thái duyệt</p>
-                <p className="text-green-600">Đã duyệt</p>
+                <p style={{ color: statusMeta.color }}>{statusMeta.label}</p>
               </div>
             </div>
           </InfoCard>
 
-          <InfoCard title="Link minh chứng" icon={LinkIcon}>
-            <div className="space-y-3">
-              <a
-                href={activityData.fbLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
-              >
-                <LinkIcon className="w-4 h-4 text-blue-600" />
-                <span className="text-sm text-blue-600 truncate">Facebook</span>
-              </a>
-              <a
-                href={activityData.driveLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
-              >
-                <LinkIcon className="w-4 h-4 text-blue-600" />
-                <span className="text-sm text-blue-600 truncate">Google Drive</span>
-              </a>
-            </div>
-          </InfoCard>
+          {activityData.evidenceLinks.length > 0 && (
+            <InfoCard title="Link minh chứng" icon={LinkIcon}>
+              <div className="space-y-3">
+                {activityData.evidenceLinks.map((link) => (
+                  <a
+                    key={`${link.label}-${link.url}`}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                  >
+                    <LinkIcon className="w-4 h-4 text-blue-600" />
+                    <span className="text-sm text-blue-600 truncate">{link.label}</span>
+                  </a>
+                ))}
+              </div>
+            </InfoCard>
+          )}
 
-          <InfoCard title="File đính kèm" icon={FileText}>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-gray-600" />
-                  <span className="text-sm text-gray-700">Kế hoạch.pdf</span>
-                </div>
-                <Download className="w-4 h-4 text-gray-400 cursor-pointer hover:text-blue-600" />
+          {activityData.attachments.length > 0 && (
+            <InfoCard title="File đính kèm" icon={FileText}>
+              <div className="space-y-2">
+                {activityData.attachments.map((file) => (
+                  <a
+                    key={`${file.name}-${file.url}`}
+                    href={file.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex min-w-0 items-center gap-2">
+                      <FileText className="w-4 h-4 shrink-0 text-gray-600" />
+                      <span className="truncate text-sm text-gray-700">{file.name}</span>
+                    </div>
+                    <Download className="w-4 h-4 shrink-0 text-gray-400" />
+                  </a>
+                ))}
               </div>
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-gray-600" />
-                  <span className="text-sm text-gray-700">Báo cáo.pdf</span>
-                </div>
-                <Download className="w-4 h-4 text-gray-400 cursor-pointer hover:text-blue-600" />
-              </div>
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-gray-600" />
-                  <span className="text-sm text-gray-700">Danh sách.xlsx</span>
-                </div>
-                <Download className="w-4 h-4 text-gray-400 cursor-pointer hover:text-blue-600" />
-              </div>
-            </div>
-          </InfoCard>
+            </InfoCard>
+          )}
 
           <InfoCard title="Người tạo" icon={User}>
             <div className="flex items-center gap-3">

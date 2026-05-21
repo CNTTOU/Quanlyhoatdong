@@ -9,20 +9,13 @@ import {
   File,
 } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
-
-interface Evidence {
-  id: number;
-  name: string;
-  type: 'image' | 'video' | 'pdf' | 'word' | 'excel' | 'link' | 'drive';
-  thumbnail?: string;
-  activity: string;
-  uploadDate: string;
-  size?: string;
-  url?: string;
-}
+import type { EvidenceRow } from '@/services/evidenceService';
 
 interface EvidenceCardProps {
-  evidence: Evidence;
+  evidence: EvidenceRow;
+  onView: (evidence: EvidenceRow) => void;
+  onDownload: (evidence: EvidenceRow) => void;
+  onCopy: (evidence: EvidenceRow) => void;
 }
 
 const typeConfig = {
@@ -70,9 +63,10 @@ const typeConfig = {
   },
 };
 
-export function EvidenceCard({ evidence }: EvidenceCardProps) {
+export function EvidenceCard({ evidence, onView, onDownload, onCopy }: EvidenceCardProps) {
   const config = typeConfig[evidence.type];
   const Icon = config.icon;
+  const hasUrl = Boolean(evidence.url);
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-lg transition-shadow group">
@@ -111,20 +105,32 @@ export function EvidenceCard({ evidence }: EvidenceCardProps) {
           </div>
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-500">{evidence.uploadDate}</span>
-            {evidence.size && <span className="text-xs text-gray-500">{evidence.size}</span>}
+            <span className="text-xs text-gray-500">{evidence.size || 'Không rõ dung lượng'}</span>
           </div>
         </div>
 
         {/* Actions */}
         <div className="flex items-center gap-2 pt-3 border-t border-gray-100">
-          <button className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm">
+          <button
+            disabled={!hasUrl}
+            onClick={() => onView(evidence)}
+            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             <Eye className="w-4 h-4" />
             <span>Xem</span>
           </button>
-          <button className="flex items-center justify-center p-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
+          <button
+            disabled={!hasUrl}
+            onClick={() => onDownload(evidence)}
+            className="flex items-center justify-center p-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             <Download className="w-4 h-4" />
           </button>
-          <button className="flex items-center justify-center p-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
+          <button
+            disabled={!hasUrl}
+            onClick={() => onCopy(evidence)}
+            className="flex items-center justify-center p-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             <Copy className="w-4 h-4" />
           </button>
         </div>

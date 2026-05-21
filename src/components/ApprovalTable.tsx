@@ -1,7 +1,9 @@
 import { Calendar, Building2, FileText } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { defaultActivityStatuses, getActivityStatusSettings, type ActivityStatusSetting } from '@/services/settingService';
 
 interface Activity {
-  id: number;
+  id: string;
   name: string;
   unit: string;
   submitDate: string;
@@ -12,18 +14,25 @@ interface Activity {
 
 interface ApprovalTableProps {
   activities: Activity[];
-  selectedId?: number;
-  onSelect: (id: number) => void;
+  selectedId?: string;
+  onSelect: (id: string) => void;
 }
 
-const statusConfig = {
-  pending: { label: 'Chờ duyệt', color: 'bg-yellow-100 text-yellow-700' },
-  approved: { label: 'Đã duyệt', color: 'bg-green-100 text-green-700' },
-  'need-update': { label: 'Cần bổ sung', color: 'bg-orange-100 text-orange-700' },
-  rejected: { label: 'Từ chối', color: 'bg-red-100 text-red-700' },
-};
+function getStatusConfig(statuses: ActivityStatusSetting[], status: Activity['status']) {
+  const config = statuses.find((item) => item.khoa_hien_thi === status);
+  return {
+    label: config?.ten_hien_thi ?? status,
+    color: config?.mau_hien_thi ?? '#6B7280',
+  };
+}
 
 export function ApprovalTable({ activities, selectedId, onSelect }: ApprovalTableProps) {
+  const [statuses, setStatuses] = useState<ActivityStatusSetting[]>(defaultActivityStatuses);
+
+  useEffect(() => {
+    getActivityStatusSettings().then(setStatuses).catch(() => undefined);
+  }, []);
+
   return (
     <div className="space-y-3">
       {activities.map((activity) => (
@@ -38,9 +47,14 @@ export function ApprovalTable({ activities, selectedId, onSelect }: ApprovalTabl
         >
           <div className="flex items-start justify-between mb-3">
             <h4 className="text-gray-900 line-clamp-2 flex-1 pr-3">{activity.name}</h4>
-            <span className={`px-2.5 py-1 rounded-full text-xs whitespace-nowrap ${statusConfig[activity.status].color}`}>
-              {statusConfig[activity.status].label}
-            </span>
+            {(() => {
+              const status = getStatusConfig(statuses, activity.status);
+              return (
+                <span className="px-2.5 py-1 rounded-full text-xs whitespace-nowrap" style={{ backgroundColor: `${status.color}1A`, color: status.color }}>
+                  {status.label}
+                </span>
+              );
+            })()}
           </div>
 
           <div className="grid grid-cols-2 gap-3 text-sm">

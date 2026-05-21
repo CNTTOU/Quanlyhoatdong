@@ -16,7 +16,7 @@ import {
 import { useState } from 'react';
 
 interface Activity {
-  id: number;
+  id: string;
   name: string;
   category: string;
   unit: string;
@@ -46,6 +46,7 @@ interface ApprovalDetailPanelProps {
   onApprove: (comment: string) => void;
   onRequestUpdate: (comment: string) => void;
   onReject: (comment: string) => void;
+  canReview?: boolean;
 }
 
 export function ApprovalDetailPanel({
@@ -53,6 +54,7 @@ export function ApprovalDetailPanel({
   onApprove,
   onRequestUpdate,
   onReject,
+  canReview = true,
 }: ApprovalDetailPanelProps) {
   const [comment, setComment] = useState('');
 
@@ -207,7 +209,7 @@ export function ApprovalDetailPanel({
         )}
 
         {/* Nhận xét */}
-        {activity.status === 'pending' && (
+        {canReview && activity.status === 'pending' && (
           <div>
             <h4 className="text-gray-900 mb-3">Nhận xét của bạn</h4>
             <textarea
@@ -222,7 +224,7 @@ export function ApprovalDetailPanel({
       </div>
 
       {/* Actions */}
-      {activity.status === 'pending' && (
+      {canReview && activity.status === 'pending' && (
         <div className="p-6 border-t border-gray-100 space-y-3">
           <button
             onClick={() => {

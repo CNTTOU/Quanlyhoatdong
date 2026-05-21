@@ -2,6 +2,7 @@ export const paths = {
   dashboard: '/dashboard',
   activities: '/activities',
   activityNew: '/activities/new',
+  activityEdit: '/activities/:id/edit',
   activityDetail: '/activities/:id',
   evidences: '/evidences',
   approval: '/approval',

@@ -1,8 +1,22 @@
 import { Filter, Calendar } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import type { ReportBuilderFiltersState } from '@/services/reportBuilderService';
+import { defaultActivityStatuses, getActivityStatusSettings, type ActivityStatusSetting } from '@/services/settingService';
 
-export function ReportBuilderFilters() {
-  const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
+interface ReportBuilderFiltersProps {
+  filters: ReportBuilderFiltersState;
+  years: Array<{ value: string; label: string }>;
+  units: Array<{ value: string; label: string }>;
+  activityTypes: Array<{ value: string; label: string }>;
+  onChange: (filters: Partial<ReportBuilderFiltersState>) => void;
+}
+
+export function ReportBuilderFilters({ filters, years, units, activityTypes, onChange }: ReportBuilderFiltersProps) {
+  const [statuses, setStatuses] = useState<ActivityStatusSetting[]>(defaultActivityStatuses);
+
+  useEffect(() => {
+    getActivityStatusSettings().then(setStatuses).catch(() => undefined);
+  }, []);
 
   return (
     <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 mb-6">
@@ -16,11 +30,11 @@ export function ReportBuilderFilters() {
           <label className="block text-sm text-gray-700 mb-2">
             Năm học <span className="text-red-500">*</span>
           </label>
-          <select className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+          <select value={filters.ma_nam_hoc} onChange={(event) => onChange({ ma_nam_hoc: event.target.value })} className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
             <option value="">Chọn năm học</option>
             {years.map((year) => (
-              <option key={year} value={year}>
-                {year} - {year + 1}
+              <option key={year.value} value={year.value}>
+                {year.label}
               </option>
             ))}
           </select>
@@ -28,7 +42,7 @@ export function ReportBuilderFilters() {
 
         <div>
           <label className="block text-sm text-gray-700 mb-2">Học kỳ</label>
-          <select className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+          <select value={filters.hoc_ky} onChange={(event) => onChange({ hoc_ky: event.target.value })} className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
             <option value="">Cả năm</option>
             <option value="1">Học kỳ I</option>
             <option value="2">Học kỳ II</option>
@@ -38,33 +52,31 @@ export function ReportBuilderFilters() {
 
         <div>
           <label className="block text-sm text-gray-700 mb-2">Đơn vị</label>
-          <select className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+          <select value={filters.ma_don_vi} onChange={(event) => onChange({ ma_don_vi: event.target.value })} className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
             <option value="">Tất cả đơn vị</option>
-            <option value="doan-cntt">Đoàn CNTT</option>
-            <option value="doan-khoa-hoc">Đoàn Khoa học</option>
-            <option value="hoi-svhs">Hội SVHS</option>
-            <option value="hoi-chu-thap-do">Hội chữ thập đỏ</option>
+            {units.map((unit) => (
+              <option key={unit.value} value={unit.value}>{unit.label}</option>
+            ))}
           </select>
         </div>
 
         <div>
           <label className="block text-sm text-gray-700 mb-2">Loại hoạt động</label>
-          <select className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+          <select value={filters.ma_loai} onChange={(event) => onChange({ ma_loai: event.target.value })} className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
             <option value="">Tất cả loại</option>
-            <option value="hoc-thuat">Học thuật</option>
-            <option value="tinh-nguyen">Tình nguyện</option>
-            <option value="ky-nang">Kỹ năng</option>
-            <option value="sv5t">SV5T</option>
-            <option value="truyen-thong">Truyền thông</option>
+            {activityTypes.map((type) => (
+              <option key={type.value} value={type.value}>{type.label}</option>
+            ))}
           </select>
         </div>
 
         <div>
           <label className="block text-sm text-gray-700 mb-2">Trạng thái</label>
-          <select className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+          <select value={filters.trang_thai} onChange={(event) => onChange({ trang_thai: event.target.value })} className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
             <option value="">Tất cả trạng thái</option>
-            <option value="approved">Đã duyệt</option>
-            <option value="completed">Hoàn thành</option>
+            {statuses.filter((status) => status.trang_thai === 'dang_su_dung').map((status) => (
+              <option key={status.ma_trang_thai} value={status.ma_trang_thai}>{status.ten_hien_thi}</option>
+            ))}
           </select>
         </div>
 
@@ -75,6 +87,8 @@ export function ReportBuilderFilters() {
               <Calendar className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="date"
+                value={filters.tu_ngay}
+                onChange={(event) => onChange({ tu_ngay: event.target.value })}
                 className="w-full pl-10 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="Từ ngày"
               />
@@ -83,6 +97,8 @@ export function ReportBuilderFilters() {
               <Calendar className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="date"
+                value={filters.den_ngay}
+                onChange={(event) => onChange({ den_ngay: event.target.value })}
                 className="w-full pl-10 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder="Đến ngày"
               />

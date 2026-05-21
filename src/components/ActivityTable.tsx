@@ -1,14 +1,21 @@
-import { Eye, Edit, Trash2, Download, FileText, Users } from 'lucide-react';
+import { Eye, Edit, Trash2, FileText, Users, Star } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { defaultActivityStatuses, getActivityStatusSettings, type ActivityStatusSetting } from '@/services/settingService';
 
 interface Activity {
-  id: number;
+  id: string;
   name: string;
   category: string;
   unit: string;
   date: string;
+  month?: string;
   participants: number;
   evidence: number;
   status: 'draft' | 'pending' | 'approved' | 'need-update';
+  isFeatured?: boolean;
+  ma_nam_hoc?: string;
+  ma_loai?: string;
+  ma_don_vi?: string;
 }
 
 interface ActivityTableProps {
@@ -16,17 +23,28 @@ interface ActivityTableProps {
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
-  onViewDetail?: (id: number) => void;
+  onViewDetail?: (id: string) => void;
+  onEdit?: (id: string) => void;
+  onDelete?: (id: string) => void;
+  onToggleFeatured?: (id: string, nextFeatured: boolean) => void;
 }
 
-const statusConfig = {
-  draft: { label: 'Nháp', color: 'bg-gray-100 text-gray-700' },
-  pending: { label: 'Chờ duyệt', color: 'bg-yellow-100 text-yellow-700' },
-  approved: { label: 'Đã duyệt', color: 'bg-green-100 text-green-700' },
-  'need-update': { label: 'Cần bổ sung', color: 'bg-orange-100 text-orange-700' },
-};
+function getStatusConfig(statuses: ActivityStatusSetting[], status: Activity['status']) {
+  const config = statuses.find((item) => item.khoa_hien_thi === status);
+  return {
+    label: config?.ten_hien_thi ?? status,
+    color: config?.mau_hien_thi ?? '#6B7280',
+  };
+}
 
-export function ActivityTable({ activities, currentPage, totalPages, onPageChange, onViewDetail }: ActivityTableProps) {
+export function ActivityTable({ activities, currentPage, totalPages, onPageChange, onViewDetail, onEdit, onDelete, onToggleFeatured }: ActivityTableProps) {
+  const [statuses, setStatuses] = useState<ActivityStatusSetting[]>(defaultActivityStatuses);
+  const hasActions = Boolean(onViewDetail || onEdit || onDelete || onToggleFeatured);
+
+  useEffect(() => {
+    getActivityStatusSettings().then(setStatuses).catch(() => undefined);
+  }, []);
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100">
       <div className="overflow-x-auto">
@@ -40,7 +58,8 @@ export function ActivityTable({ activities, currentPage, totalPages, onPageChang
               <th className="text-center py-4 px-6 text-sm text-gray-600">Tham gia</th>
               <th className="text-center py-4 px-6 text-sm text-gray-600">Minh chứng</th>
               <th className="text-left py-4 px-6 text-sm text-gray-600">Trạng thái</th>
-              <th className="text-center py-4 px-6 text-sm text-gray-600">Thao tác</th>
+              <th className="text-left py-4 px-6 text-sm text-gray-600">Nổi bật</th>
+              {hasActions && <th className="text-center py-4 px-6 text-sm text-gray-600">Thao tác</th>}
             </tr>
           </thead>
           <tbody>
@@ -74,43 +93,65 @@ export function ActivityTable({ activities, currentPage, totalPages, onPageChang
                   </div>
                 </td>
                 <td className="py-4 px-6">
+                  {(() => {
+                    const status = getStatusConfig(statuses, activity.status);
+                    return (
                   <span
-                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs ${
-                      statusConfig[activity.status].color
-                    }`}
+                    className="inline-flex items-center px-2.5 py-1 rounded-full text-xs"
+                    style={{ backgroundColor: `${status.color}1A`, color: status.color }}
                   >
-                    {statusConfig[activity.status].label}
+                    {status.label}
                   </span>
+                    );
+                  })()}
                 </td>
                 <td className="py-4 px-6">
-                  <div className="flex items-center justify-center gap-2">
-                    <button
-                      onClick={() => onViewDetail?.(activity.id)}
-                      className="p-2 hover:bg-blue-50 rounded-lg transition-colors group"
-                      title="Xem chi tiết"
-                    >
-                      <Eye className="w-4 h-4 text-gray-400 group-hover:text-blue-600" />
-                    </button>
-                    <button
-                      className="p-2 hover:bg-green-50 rounded-lg transition-colors group"
-                      title="Chỉnh sửa"
-                    >
-                      <Edit className="w-4 h-4 text-gray-400 group-hover:text-green-600" />
-                    </button>
-                    <button
-                      className="p-2 hover:bg-cyan-50 rounded-lg transition-colors group"
-                      title="Tải báo cáo"
-                    >
-                      <Download className="w-4 h-4 text-gray-400 group-hover:text-cyan-600" />
-                    </button>
-                    <button
-                      className="p-2 hover:bg-red-50 rounded-lg transition-colors group"
-                      title="Xóa"
-                    >
-                      <Trash2 className="w-4 h-4 text-gray-400 group-hover:text-red-600" />
-                    </button>
-                  </div>
+                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs ${activity.isFeatured ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'}`}>
+                    {activity.isFeatured ? 'Đang hiển thị' : 'Không hiển thị'}
+                  </span>
                 </td>
+                {hasActions && (
+                  <td className="py-4 px-6">
+                    <div className="flex items-center justify-center gap-2">
+                      {onToggleFeatured && activity.status === 'approved' && (
+                        <button
+                          onClick={() => onToggleFeatured(activity.id, !activity.isFeatured)}
+                          className="p-2 hover:bg-yellow-50 rounded-lg transition-colors group"
+                          title={activity.isFeatured ? 'Ẩn khỏi hoạt động nổi bật' : 'Hiển thị ở hoạt động nổi bật'}
+                        >
+                          <Star className={`w-4 h-4 ${activity.isFeatured ? 'fill-yellow-400 text-yellow-500' : 'text-gray-400 group-hover:text-yellow-500'}`} />
+                        </button>
+                      )}
+                      {onViewDetail && (
+                        <button
+                          onClick={() => onViewDetail(activity.id)}
+                          className="p-2 hover:bg-blue-50 rounded-lg transition-colors group"
+                          title="Xem chi tiết"
+                        >
+                          <Eye className="w-4 h-4 text-gray-400 group-hover:text-blue-600" />
+                        </button>
+                      )}
+                      {onEdit && (
+                        <button
+                          onClick={() => onEdit(activity.id)}
+                          className="p-2 hover:bg-green-50 rounded-lg transition-colors group"
+                          title="Chỉnh sửa"
+                        >
+                          <Edit className="w-4 h-4 text-gray-400 group-hover:text-green-600" />
+                        </button>
+                      )}
+                      {onDelete && (
+                        <button
+                          onClick={() => onDelete(activity.id)}
+                          className="p-2 hover:bg-red-50 rounded-lg transition-colors group"
+                          title="Xóa"
+                        >
+                          <Trash2 className="w-4 h-4 text-gray-400 group-hover:text-red-600" />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

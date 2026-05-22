@@ -17,6 +17,7 @@ export function ActivityListPage({ onViewDetail, onEdit, onCreate }: ActivityLis
   const { user, hasPermission } = useAuth();
   const canEditActivity = hasPermission('sua_hoat_dong');
   const canDeleteActivity = hasPermission('xoa_hoat_dong');
+  const canManageFeatured = hasPermission('quan_ly_hoat_dong_noi_bat');
   const [activities, setActivities] = useState<ActivityRow[]>([]);
   const [years, setYears] = useState<Array<{ value: string; label: string }>>([]);
   const [categories, setCategories] = useState<Array<{ value: string; label: string }>>([{ value: '', label: 'Tất cả loại' }]);
@@ -147,7 +148,7 @@ export function ActivityListPage({ onViewDetail, onEdit, onCreate }: ActivityLis
         onViewDetail={onViewDetail}
         onEdit={canEditActivity ? onEdit : undefined}
         onDelete={canDeleteActivity ? handleDelete : undefined}
-        onToggleFeatured={canEditActivity ? handleToggleFeatured : undefined}
+        onToggleFeatured={canManageFeatured ? handleToggleFeatured : undefined}
       />
     </div>
   );

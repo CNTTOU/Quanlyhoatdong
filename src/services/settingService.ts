@@ -33,6 +33,17 @@ export interface DisplaySettings {
   che_do_toi: boolean;
 }
 
+export interface FeaturedActivitySettings {
+  tieu_de: string;
+  mo_ta: string;
+  tieu_de_thong_ke: string;
+  ma_hoat_dong_noi_bat_nhat: string;
+  danh_sach_hoat_dong_tieu_bieu: string[];
+  so_luong_tieu_bieu: number;
+  hien_thi_bo_loc: boolean;
+  hien_thi_thong_ke: boolean;
+}
+
 export const SYSTEM_SETTINGS_UPDATED_EVENT = 'system-settings-updated';
 
 const defaultSettings: SystemSettings = {
@@ -62,6 +73,17 @@ const defaultDisplaySettings: DisplaySettings = {
   cho_phep_truy_cap_cong_khai: false,
   hien_thi_lich_cong_khai: true,
   che_do_toi: false,
+};
+
+export const defaultFeaturedActivitySettings: FeaturedActivitySettings = {
+  tieu_de: 'Hoạt động nổi bật Đoàn - Hội',
+  mo_ta: 'Lưu giữ những dấu ấn tiêu biểu trong công tác Đoàn - Hội và phong trào sinh viên',
+  tieu_de_thong_ke: 'Thành tích nổi bật',
+  ma_hoat_dong_noi_bat_nhat: '',
+  danh_sach_hoat_dong_tieu_bieu: [],
+  so_luong_tieu_bieu: 6,
+  hien_thi_bo_loc: true,
+  hien_thi_thong_ke: true,
 };
 
 export async function getSystemSettings() {
@@ -182,5 +204,47 @@ export async function updateDisplaySettings(data: DisplaySettings) {
     module: 'cai_dat_he_thong',
     ma_doi_tuong: 'giao_dien',
     noi_dung: 'Cập nhật cài đặt giao diện',
+  }).catch(() => undefined);
+}
+
+export async function getFeaturedActivitySettings() {
+  return getCached('settings:featured-activities', 5 * 60 * 1000, async () => {
+    const ref = doc(db, 'cai_dat_he_thong', 'hoat_dong_noi_bat');
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      const data = snap.data() as Partial<FeaturedActivitySettings>;
+      return {
+        ...defaultFeaturedActivitySettings,
+        ...data,
+        danh_sach_hoat_dong_tieu_bieu: Array.isArray(data.danh_sach_hoat_dong_tieu_bieu) ? data.danh_sach_hoat_dong_tieu_bieu.map(String) : [],
+        so_luong_tieu_bieu: Number(data.so_luong_tieu_bieu ?? defaultFeaturedActivitySettings.so_luong_tieu_bieu),
+      };
+    }
+    return defaultFeaturedActivitySettings;
+  });
+}
+
+export async function updateFeaturedActivitySettings(data: FeaturedActivitySettings) {
+  invalidateCache('settings:');
+  const nextSettings: FeaturedActivitySettings = {
+    ...data,
+    so_luong_tieu_bieu: Math.max(0, Number(data.so_luong_tieu_bieu || 0)),
+    danh_sach_hoat_dong_tieu_bieu: Array.from(new Set(data.danh_sach_hoat_dong_tieu_bieu.filter(Boolean))),
+  };
+
+  await setDoc(
+    doc(db, 'cai_dat_he_thong', 'hoat_dong_noi_bat'),
+    {
+      ...nextSettings,
+      ngay_cap_nhat: serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  await addLog({
+    hanh_dong: 'cap_nhat_hoat_dong_noi_bat',
+    module: 'cai_dat_he_thong',
+    ma_doi_tuong: 'hoat_dong_noi_bat',
+    noi_dung: 'Cập nhật cấu hình hoạt động nổi bật',
   }).catch(() => undefined);
 }

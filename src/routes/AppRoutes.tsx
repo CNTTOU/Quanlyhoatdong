@@ -84,7 +84,7 @@ export function AppRoutes() {
           <Route path={paths.approval} element={<ProtectedRoute requiredPermissions={['duyet_hoat_dong']}><ApprovalPage /></ProtectedRoute>} />
           <Route path={paths.reports} element={<ProtectedRoute anyPermissions={['xem_bao_cao', 'tao_bao_cao']}><ReportPage /></ProtectedRoute>} />
           <Route path={paths.reportBuilder} element={<ProtectedRoute requiredPermissions={['tao_bao_cao']}><ReportBuilderPage /></ProtectedRoute>} />
-          <Route path={paths.settings} element={<ProtectedRoute requiredPermissions={['cai_dat_he_thong']}><SettingsPage /></ProtectedRoute>} />
+          <Route path={paths.settings} element={<ProtectedRoute anyPermissions={['cai_dat_he_thong', 'quan_ly_hoat_dong_noi_bat']}><SettingsPage /></ProtectedRoute>} />
           <Route path={paths.archive} element={<ProtectedRoute anyPermissions={['tao_goi_luu_tru', 'xoa_du_lieu_nam_hoc']}><ArchivePage /></ProtectedRoute>} />
           <Route path={paths.calendar} element={<ProtectedRoute requiredPermissions={['xem_hoat_dong']}><CalendarPage /></ProtectedRoute>} />
         </Route>

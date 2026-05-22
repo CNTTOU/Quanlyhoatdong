@@ -8,6 +8,7 @@ import {
   UNITS,
 } from "../constants/seedData.ts";
 import { DEFAULT_REPORT_TEMPLATES } from "../constants/databaseDesign.ts";
+import { defaultFeaturedActivitySettings } from "./settingService.ts";
 import { addLog } from "./auditLogService.ts";
 
 export async function seedPermissions() {
@@ -129,22 +130,32 @@ export async function seedActivityTypes() {
 }
 
 export async function seedSystemSettings() {
-  await setDoc(
-    doc(db, "cai_dat_he_thong", "thong_tin_chung"),
-    {
-      ten_he_thong: "Quản lý hoạt động",
-      ten_don_vi: "Đoàn - Hội Khoa Công nghệ Thông tin",
-      logo_url: "",
-      email_lien_he: "",
-      mau_chu_dao: "#0F4C81",
-      cho_phep_dang_ky: false,
-      cho_phep_google_login: false,
-      chi_admin_tao_tai_khoan: true,
-      nam_hoc_hien_tai: "2025_2026",
-      ngay_cap_nhat: serverTimestamp(),
-    },
-    { merge: true },
-  );
+  await Promise.all([
+    setDoc(
+      doc(db, "cai_dat_he_thong", "thong_tin_chung"),
+      {
+        ten_he_thong: "Quản lý hoạt động",
+        ten_don_vi: "Đoàn - Hội Khoa Công nghệ Thông tin",
+        logo_url: "",
+        email_lien_he: "",
+        mau_chu_dao: "#0F4C81",
+        cho_phep_dang_ky: false,
+        cho_phep_google_login: false,
+        chi_admin_tao_tai_khoan: true,
+        nam_hoc_hien_tai: "2025_2026",
+        ngay_cap_nhat: serverTimestamp(),
+      },
+      { merge: true },
+    ),
+    setDoc(
+      doc(db, "cai_dat_he_thong", "hoat_dong_noi_bat"),
+      {
+        ...defaultFeaturedActivitySettings,
+        ngay_cap_nhat: serverTimestamp(),
+      },
+      { merge: true },
+    ),
+  ]);
 }
 
 export async function seedReportTemplates() {

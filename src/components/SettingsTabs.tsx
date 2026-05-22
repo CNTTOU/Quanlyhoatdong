@@ -1,23 +1,28 @@
-import { Info, Tag, CheckCircle, FileText, Palette } from 'lucide-react';
+import { Info, Tag, CheckCircle, FileText, Palette, Star } from 'lucide-react';
 
 interface SettingsTabsProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
+  canManageSystem?: boolean;
+  canManageFeatured?: boolean;
 }
 
 const tabs = [
-  { id: 'system', label: 'Thông tin hệ thống', icon: Info },
-  { id: 'activity-types', label: 'Loại hoạt động', icon: Tag },
-  { id: 'statuses', label: 'Trạng thái duyệt', icon: CheckCircle },
-  { id: 'templates', label: 'Mẫu báo cáo', icon: FileText },
-  { id: 'display', label: 'Giao diện hiển thị', icon: Palette },
+  { id: 'system', label: 'Thông tin hệ thống', icon: Info, scope: 'system' },
+  { id: 'activity-types', label: 'Loại hoạt động', icon: Tag, scope: 'system' },
+  { id: 'statuses', label: 'Trạng thái duyệt', icon: CheckCircle, scope: 'system' },
+  { id: 'templates', label: 'Mẫu báo cáo', icon: FileText, scope: 'system' },
+  { id: 'display', label: 'Giao diện hiển thị', icon: Palette, scope: 'system' },
+  { id: 'featured-activities', label: 'Chỉnh sửa hoạt động nổi bật', icon: Star, scope: 'featured' },
 ];
 
-export function SettingsTabs({ activeTab, onTabChange }: SettingsTabsProps) {
+export function SettingsTabs({ activeTab, onTabChange, canManageSystem = true, canManageFeatured = false }: SettingsTabsProps) {
+  const visibleTabs = tabs.filter((tab) => (tab.scope === 'featured' ? canManageFeatured : canManageSystem));
+
   return (
     <div className="bg-white border-b border-gray-200">
       <div className="flex items-center gap-2 overflow-x-auto">
-        {tabs.map((tab) => {
+        {visibleTabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
 

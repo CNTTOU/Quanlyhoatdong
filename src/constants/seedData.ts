@@ -16,6 +16,7 @@ export const PERMISSIONS = [
   ['quan_ly_don_vi', 'Quản lý đơn vị', 'quan_tri_tai_khoan', 'don_vi', false],
   ['quan_ly_phan_quyen', 'Quản lý phân quyền', 'quan_tri_tai_khoan', 'he_thong', true],
   ['cai_dat_he_thong', 'Cài đặt hệ thống', 'quan_ly_hoat_dong', 'he_thong', true],
+  ['quan_ly_hoat_dong_noi_bat', 'Chỉnh sửa hoạt động nổi bật', 'quan_ly_hoat_dong', 'he_thong', false],
   ['xem_nhat_ky_he_thong', 'Xem nhật ký hệ thống', 'quan_ly_hoat_dong', 'he_thong', false],
   ['tao_goi_luu_tru', 'Tạo gói lưu trữ', 'quan_ly_hoat_dong', 'luu_tru', true],
   ['xoa_du_lieu_nam_hoc', 'Xóa dữ liệu năm học', 'quan_ly_hoat_dong', 'luu_tru', true],
@@ -38,6 +39,7 @@ export const ROLE_PERMISSIONS = {
     'quan_ly_nguoi_dung',
     'tao_tai_khoan',
     'khoa_tai_khoan',
+    'quan_ly_hoat_dong_noi_bat',
   ],
   ban_chap_hanh: [
     'xem_hoat_dong',

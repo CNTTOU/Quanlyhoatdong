@@ -15,7 +15,6 @@ import {
   Edit,
   Download,
   Eye,
-  Send,
   AlertCircle,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -203,7 +202,6 @@ export function ActivityDetailPage() {
 
   const statusMeta = getStatusMeta(statuses, activityData.status);
   const canEditActivity = hasPermission('sua_hoat_dong') && activityData.rawStatus !== 'da_duyet';
-  const canResubmit = activityData.rawStatus === 'can_bo_sung' || activityData.rawStatus === 'cho_duyet' || activityData.rawStatus === 'ban_nhap';
   const canCreateReport = hasPermission('tao_bao_cao');
   const hasActionButtons = canEditActivity || canCreateReport || activityData.images.length > 0;
 
@@ -246,15 +244,6 @@ export function ActivityDetailPage() {
             >
               <Edit className="w-4 h-4" />
               <span>{activityData.rawStatus === 'can_bo_sung' ? 'Bổ sung / chỉnh sửa' : 'Chỉnh sửa'}</span>
-            </button>
-          )}
-          {canEditActivity && canResubmit && activityData.rawStatus === 'can_bo_sung' && (
-            <button
-              onClick={() => navigate(`/activities/${id}/edit`)}
-              className="flex items-center gap-2 px-5 py-2.5 bg-orange-100 text-orange-700 border border-orange-200 rounded-lg hover:bg-orange-200 transition-colors"
-            >
-              <Send className="w-4 h-4" />
-              <span>Gửi lại sau bổ sung</span>
             </button>
           )}
           {canCreateReport && (

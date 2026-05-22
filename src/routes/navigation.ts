@@ -24,5 +24,5 @@ export const navigationItems: NavigationItem[] = [
   { id: 'reports', icon: BarChart3, label: 'Thống kê báo cáo', path: paths.reports, anyPermissions: ['xem_bao_cao', 'tao_bao_cao'] },
   { id: 'report-builder', icon: FileEdit, label: 'Tạo báo cáo', path: paths.reportBuilder, requiredPermissions: ['tao_bao_cao'] },
   { id: 'archive', icon: Archive, label: 'Lưu trữ năm học', path: paths.archive, anyPermissions: ['tao_goi_luu_tru', 'xoa_du_lieu_nam_hoc'] },
-  { id: 'settings', icon: Settings, label: 'Cài đặt', path: paths.settings, requiredPermissions: ['cai_dat_he_thong'] },
+  { id: 'settings', icon: Settings, label: 'Cài đặt', path: paths.settings, anyPermissions: ['cai_dat_he_thong', 'quan_ly_hoat_dong_noi_bat'] },
 ];

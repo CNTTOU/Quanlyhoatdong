@@ -118,8 +118,12 @@ service cloud.firestore {
     }
 
     match /cai_dat_he_thong/{id} {
-      allow read: if isActiveUser();
-      allow write: if isSuperAdmin() || hasPermission('cai_dat_he_thong') || hasPermission('tao_goi_luu_tru') || hasPermission('xoa_du_lieu_nam_hoc');
+      allow read: if isActiveUser() || id in ['thong_tin_chung', 'giao_dien', 'hoat_dong_noi_bat'];
+      allow write: if isSuperAdmin()
+        || hasPermission('cai_dat_he_thong')
+        || (id == 'hoat_dong_noi_bat' && hasPermission('quan_ly_hoat_dong_noi_bat'))
+        || hasPermission('tao_goi_luu_tru')
+        || hasPermission('xoa_du_lieu_nam_hoc');
     }
 
     match /thong_bao/{id} {

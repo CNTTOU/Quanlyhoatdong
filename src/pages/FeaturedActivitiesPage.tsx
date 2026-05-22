@@ -7,6 +7,7 @@ import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore
 import { db } from '@/lib/firebase';
 import { getActivityTypes } from '@/services/activityTypeService';
 import { getCachedSchoolYearsBasic } from '@/services/schoolYearService';
+import { defaultFeaturedActivitySettings, getFeaturedActivitySettings, type FeaturedActivitySettings } from '@/services/settingService';
 
 interface FeaturedData {
   heroActivity: Parameters<typeof FeaturedActivityHero>[0]['activity'] | null;
@@ -15,12 +16,14 @@ interface FeaturedData {
     title: string;
     items: Array<{ label: string; value: string }>;
   };
+  settings: FeaturedActivitySettings;
 }
 
 const emptyFeaturedData: FeaturedData = {
   heroActivity: null,
   featuredActivities: [],
   stats: { title: 'Thành tích nổi bật', items: [] },
+  settings: defaultFeaturedActivitySettings,
 };
 
 export function FeaturedActivitiesPage() {
@@ -38,8 +41,9 @@ export function FeaturedActivitiesPage() {
       getDocs(query(collection(db, 'hoat_dong'), where('trang_thai', '==', 'da_duyet'), where('hien_thi_noi_bat', '==', true))),
       getCachedSchoolYearsBasic(),
       getActivityTypes(),
+      getFeaturedActivitySettings().catch(() => defaultFeaturedActivitySettings),
     ])
-      .then(([activitySnap, schoolYears, types]) => {
+      .then(([activitySnap, schoolYears, types, settings]) => {
         const activities = activitySnap.docs.map((item) => {
           const itemData = item.data();
           return {
@@ -56,12 +60,20 @@ export function FeaturedActivitiesPage() {
             ma_loai: String(itemData.ma_loai ?? ''),
           };
         }).filter((activity) => (!selectedYear || activity.ma_nam_hoc === selectedYear) && (!selectedType || activity.ma_loai === selectedType));
+        const activityMap = new Map(activities.map((activity) => [activity.id, activity]));
+        const configuredHero = settings.ma_hoat_dong_noi_bat_nhat ? activityMap.get(settings.ma_hoat_dong_noi_bat_nhat) : null;
+        const heroActivity = configuredHero ?? activities[0] ?? null;
+        const orderedOtherActivities = [
+          ...settings.danh_sach_hoat_dong_tieu_bieu.map((id) => activityMap.get(id)).filter(Boolean),
+          ...activities.filter((activity) => !settings.danh_sach_hoat_dong_tieu_bieu.includes(activity.id)),
+        ].filter((activity) => activity?.id !== heroActivity?.id);
         setYears(schoolYears.map((year) => ({ value: year.ma_nam_hoc, label: year.ten_nam_hoc })));
         setActivityTypes(types.map((type) => ({ value: type.ma_loai, label: type.ten_loai })));
         setData({
-          heroActivity: activities[0] ?? null,
-          featuredActivities: activities.slice(1),
-          stats: { title: 'Thành tích nổi bật', items: [] },
+          heroActivity,
+          featuredActivities: orderedOtherActivities.slice(0, settings.so_luong_tieu_bieu),
+          stats: { title: settings.tieu_de_thong_ke, items: [] },
+          settings,
         });
       })
       .finally(() => setIsLoading(false));
@@ -74,10 +86,10 @@ export function FeaturedActivitiesPage() {
         <div className="max-w-7xl mx-auto px-6 py-16">
           <div className="flex items-center gap-3 mb-4">
             <Award className="w-10 h-10 text-yellow-400" />
-            <h1 className="text-4xl lg:text-5xl">Hoạt động nổi bật Đoàn - Hội</h1>
+            <h1 className="text-4xl lg:text-5xl">{data.settings.tieu_de}</h1>
           </div>
           <p className="text-xl text-blue-100 max-w-3xl">
-            Lưu giữ những dấu ấn tiêu biểu trong công tác Đoàn - Hội và phong trào sinh viên
+            {data.settings.mo_ta}
           </p>
         </div>
       </div>
@@ -89,7 +101,7 @@ export function FeaturedActivitiesPage() {
         )}
 
         {/* Filters */}
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 mb-8">
+        {data.settings.hien_thi_bo_loc && <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 mb-8">
           <div className="flex items-center gap-2 mb-4">
             <Filter className="w-5 h-5 text-gray-600" />
             <h3 className="text-gray-900">Bộ lọc</h3>
@@ -118,7 +130,7 @@ export function FeaturedActivitiesPage() {
               </select>
             </div>
           </div>
-        </div>
+        </div>}
 
         {/* Featured Activities Grid */}
         <div className="mb-6">
@@ -145,7 +157,7 @@ export function FeaturedActivitiesPage() {
         )}
 
         {/* Stats Section */}
-        <div className="mt-12 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl p-8 text-white">
+        {data.settings.hien_thi_thong_ke && <div className="mt-12 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl p-8 text-white">
           <h3 className="text-2xl mb-6 text-center">{data.stats.title}</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {data.stats.items.map((item) => (
@@ -155,7 +167,7 @@ export function FeaturedActivitiesPage() {
               </div>
             ))}
           </div>
-        </div>
+        </div>}
       </div>
     </div>
   );

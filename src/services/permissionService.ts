@@ -26,6 +26,7 @@ export function buildEffectivePermissions(profile: Pick<NguoiDung, 'ma_vai_tro' 
 }
 
 export function hasPermission(user: CurrentUserProfile | null | undefined, maQuyen: string) {
+  if (isSuperAdmin(user)) return true;
   return Boolean(user?.danh_sach_quyen?.includes(maQuyen));
 }
 

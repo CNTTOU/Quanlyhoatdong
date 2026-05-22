@@ -132,6 +132,15 @@ export async function updateActivityFeatured(maHoatDong: string, featured: boole
   invalidateCache('activities:');
 }
 
+export async function refreshActivityPreviewImage(maHoatDong: string, force = false) {
+  const result = await gatewayRequest<{ image: string; updated?: boolean; skipped?: boolean }>('/api/activity', {
+    action: 'activities.refreshPreviewImage',
+    payload: { id: maHoatDong, force },
+  });
+  invalidateCache('activities:');
+  return result;
+}
+
 async function transitionActivity(maHoatDong: string, user: CurrentUserProfile, action: string, status: string, permission: string, nhanXet = '') {
   await gatewayRequest('/api/activity', {
     action: 'activities.transition',

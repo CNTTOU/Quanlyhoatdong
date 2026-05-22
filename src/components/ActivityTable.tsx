@@ -113,13 +113,20 @@ export function ActivityTable({ activities, currentPage, totalPages, onPageChang
                 {hasActions && (
                   <td className="py-4 px-6">
                     <div className="flex items-center justify-center gap-2">
-                      {onToggleFeatured && activity.status === 'approved' && (
+                      {onToggleFeatured && (
                         <button
+                          disabled={activity.status !== 'approved'}
                           onClick={() => onToggleFeatured(activity.id, !activity.isFeatured)}
-                          className="p-2 hover:bg-yellow-50 rounded-lg transition-colors group"
-                          title={activity.isFeatured ? 'Ẩn khỏi hoạt động nổi bật' : 'Hiển thị ở hoạt động nổi bật'}
+                          className="p-2 hover:bg-yellow-50 rounded-lg transition-colors group disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                          title={
+                            activity.status !== 'approved'
+                              ? 'Chỉ hoạt động đã duyệt mới được hiển thị nổi bật'
+                              : activity.isFeatured
+                                ? 'Ẩn khỏi hoạt động nổi bật'
+                                : 'Hiển thị ở hoạt động nổi bật'
+                          }
                         >
-                          <Star className={`w-4 h-4 ${activity.isFeatured ? 'fill-yellow-400 text-yellow-500' : 'text-gray-400 group-hover:text-yellow-500'}`} />
+                          <Star className={`w-4 h-4 ${activity.isFeatured ? 'fill-yellow-400 text-yellow-500' : activity.status === 'approved' ? 'text-gray-400 group-hover:text-yellow-500' : 'text-gray-300'}`} />
                         </button>
                       )}
                       {onViewDetail && (

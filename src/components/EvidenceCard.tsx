@@ -2,11 +2,13 @@ import {
   Eye,
   Download,
   Copy,
+  Edit,
   Image as ImageIcon,
   Video,
   FileText,
   Link as LinkIcon,
   File,
+  Trash2,
 } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import type { EvidenceRow } from '@/services/evidenceService';
@@ -16,6 +18,8 @@ interface EvidenceCardProps {
   onView: (evidence: EvidenceRow) => void;
   onDownload: (evidence: EvidenceRow) => void;
   onCopy: (evidence: EvidenceRow) => void;
+  onEdit: (evidence: EvidenceRow) => void;
+  onDelete: (evidence: EvidenceRow) => void;
 }
 
 const typeConfig = {
@@ -63,10 +67,12 @@ const typeConfig = {
   },
 };
 
-export function EvidenceCard({ evidence, onView, onDownload, onCopy }: EvidenceCardProps) {
+export function EvidenceCard({ evidence, onView, onDownload, onCopy, onEdit, onDelete }: EvidenceCardProps) {
   const config = typeConfig[evidence.type];
   const Icon = config.icon;
   const hasUrl = Boolean(evidence.url);
+  const activityName = evidence.activity || 'Chưa gắn hoạt động';
+  const evidenceName = evidence.name || config.label;
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-lg transition-shadow group">
@@ -76,7 +82,7 @@ export function EvidenceCard({ evidence, onView, onDownload, onCopy }: EvidenceC
           <ImageWithFallback
             src={evidence.thumbnail}
             alt={evidence.name}
-            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+            className="w-full h-full object-cover"
           />
         ) : (
           <div className={`w-full h-full flex items-center justify-center ${config.bg}`}>
@@ -96,12 +102,12 @@ export function EvidenceCard({ evidence, onView, onDownload, onCopy }: EvidenceC
 
       {/* Content */}
       <div className="p-4">
-        <h4 className="text-gray-900 mb-2 line-clamp-2 min-h-[3rem]">{evidence.name}</h4>
+        <h4 className="text-gray-900 mb-2 line-clamp-2 min-h-[3rem]">{activityName}</h4>
 
         <div className="space-y-2 mb-4">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500">Hoạt động:</span>
-            <span className="text-xs text-gray-700 line-clamp-1">{evidence.activity}</span>
+            <span className="text-xs text-gray-500">Minh chứng:</span>
+            <span className="text-xs text-gray-700 line-clamp-1">{evidenceName}</span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-500">{evidence.uploadDate}</span>
@@ -132,6 +138,20 @@ export function EvidenceCard({ evidence, onView, onDownload, onCopy }: EvidenceC
             className="flex items-center justify-center p-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Copy className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => onEdit(evidence)}
+            className="flex items-center justify-center p-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-green-50 hover:text-green-600 transition-colors"
+            title="Chỉnh sửa"
+          >
+            <Edit className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => onDelete(evidence)}
+            className="flex items-center justify-center p-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-red-50 hover:text-red-600 transition-colors"
+            title="Xóa"
+          >
+            <Trash2 className="w-4 h-4" />
           </button>
         </div>
       </div>

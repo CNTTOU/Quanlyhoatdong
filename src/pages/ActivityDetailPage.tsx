@@ -22,10 +22,11 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { collection, doc, getDoc, getDocs, limit, query, Timestamp, where } from 'firebase/firestore';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { ActivityDetailBanner } from '@/components/ActivityDetailBanner';
+import { EvidencePreviewModal, getEvidenceDownloadUrl } from '@/components/EvidencePreviewModal';
 import { InfoCard } from '@/components/InfoCard';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import { getActivityById } from '@/services/activityService';
-import { getEvidenceByActivity } from '@/services/evidenceService';
+import { getEvidenceByActivity, type EvidenceType } from '@/services/evidenceService';
 import { defaultActivityStatuses, getActivityStatusSettings, type ActivityStatusSetting } from '@/services/settingService';
 import { identityDb } from '@/lib/firebase';
 import type { MinhChung } from '@/types/firebase';
@@ -50,7 +51,7 @@ type ActivityDetailData = {
   note: string;
   rawStatus: string;
   evidenceLinks: Array<{ label: string; url: string }>;
-  attachments: Array<{ name: string; url: string }>;
+  attachments: Array<{ name: string; type: EvidenceType; url: string; size?: string }>;
   creator: { name: string; role: string; avatar?: string };
   history: Array<{ date: string; action: string; by: string }>;
   images: string[];
@@ -93,6 +94,28 @@ function isFileEvidence(evidence: MinhChung) {
   return ['file', 'tep', 'pdf', 'word', 'excel', 'tai_lieu'].includes(type) || Boolean(format);
 }
 
+function toFileSize(value: unknown) {
+  const size = Number(value ?? 0);
+  if (!size) return '';
+  if (size >= 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)} MB`;
+  return `${Math.round(size / 1024)} KB`;
+}
+
+function toAttachmentType(evidence: MinhChung): EvidenceType {
+  const format = String(evidence.dinh_dang_file || '').toLowerCase();
+  const mimeType = String(evidence.mime_type || '').toLowerCase();
+  if (mimeType.startsWith('image/') || ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(format)) return 'image';
+  if (format.includes('pdf') || mimeType.includes('pdf')) return 'pdf';
+  if (format.includes('doc') || mimeType.includes('word')) return 'word';
+  if (format.includes('xls') || format.includes('csv') || mimeType.includes('spreadsheet') || mimeType.includes('excel') || mimeType.includes('csv')) return 'excel';
+  return 'link';
+}
+
+function isAutoActivityLinkEvidence(evidence: MinhChung) {
+  const type = String(evidence.loai_minh_chung || '').toLowerCase();
+  return Boolean(evidence.tu_dong_tu_hoat_dong) && ['link_bai_viet', 'link_google_drive'].includes(type);
+}
+
 function toDisplayDate(value: unknown) {
   if (value instanceof Timestamp) return value.toDate().toLocaleString('vi-VN');
   if (typeof value === 'string' && value) return new Date(value).toLocaleString('vi-VN');
@@ -121,6 +144,7 @@ export function ActivityDetailPage() {
   const navigate = useNavigate();
   const [activityData, setActivityData] = useState<ActivityDetailData | null>(null);
   const [statuses, setStatuses] = useState<ActivityStatusSetting[]>(defaultActivityStatuses);
+  const [previewAttachment, setPreviewAttachment] = useState<ActivityDetailData['attachments'][number] | null>(null);
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -139,7 +163,7 @@ export function ActivityDetailPage() {
           { label: 'Thư mục minh chứng', url: String(activity.link_thu_muc_minh_chung || '').trim() },
         ].filter((link) => isUrl(link.url));
         const evidenceLinks = evidences
-          .filter((evidence) => !isFileEvidence(evidence))
+          .filter((evidence) => !isFileEvidence(evidence) && !isAutoActivityLinkEvidence(evidence))
           .map((evidence) => ({
             label: String(evidence.ten_minh_chung || 'Minh chứng'),
             url: toEvidenceUrl(evidence),
@@ -149,7 +173,9 @@ export function ActivityDetailPage() {
           .filter(isFileEvidence)
           .map((evidence) => ({
             name: String(evidence.ten_minh_chung || evidence.duong_dan_file || 'File đính kèm'),
+            type: toAttachmentType(evidence),
             url: toEvidenceUrl(evidence),
+            size: toFileSize(evidence.dung_luong_file),
           }))
           .filter((file) => isUrl(file.url));
 
@@ -203,6 +229,14 @@ export function ActivityDetailPage() {
   const statusMeta = getStatusMeta(statuses, activityData.status);
   const canEditActivity = hasPermission('sua_hoat_dong') && activityData.rawStatus !== 'da_duyet';
   const canCreateReport = hasPermission('tao_bao_cao');
+  const openAttachmentUrl = (file: { url?: string }) => {
+    if (!file.url) return;
+    window.open(file.url, '_blank', 'noopener,noreferrer');
+  };
+  const downloadAttachmentUrl = (file: { url?: string }) => {
+    if (!file.url) return;
+    window.open(getEvidenceDownloadUrl(file.url), '_blank', 'noopener,noreferrer');
+  };
   const hasActionButtons = canEditActivity || canCreateReport || activityData.images.length > 0;
 
   return (
@@ -366,19 +400,33 @@ export function ActivityDetailPage() {
             <InfoCard title="File đính kèm" icon={FileText}>
               <div className="space-y-2">
                 {activityData.attachments.map((file) => (
-                  <a
+                  <div
                     key={`${file.name}-${file.url}`}
-                    href={file.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                    className="flex items-center justify-between gap-3 rounded-lg bg-gray-50 p-3"
                   >
                     <div className="flex min-w-0 items-center gap-2">
                       <FileText className="w-4 h-4 shrink-0 text-gray-600" />
                       <span className="truncate text-sm text-gray-700">{file.name}</span>
                     </div>
-                    <Download className="w-4 h-4 shrink-0 text-gray-400" />
-                  </a>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewAttachment(file)}
+                        className="rounded-lg p-2 text-blue-600 hover:bg-blue-50"
+                        title="Xem"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => downloadAttachmentUrl(file)}
+                        className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+                        title="Tải về"
+                      >
+                        <Download className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
                 ))}
               </div>
             </InfoCard>
@@ -435,6 +483,12 @@ export function ActivityDetailPage() {
           </div>
         </InfoCard>
       </div>
+
+      <EvidencePreviewModal
+        evidence={previewAttachment}
+        onClose={() => setPreviewAttachment(null)}
+        onDownload={downloadAttachmentUrl}
+      />
     </div>
   );
 }

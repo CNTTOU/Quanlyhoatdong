@@ -10,6 +10,7 @@ import {
   Users,
   Upload,
   Link as LinkIcon,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -17,10 +18,60 @@ import { collection, getDocs, orderBy, query } from 'firebase/firestore';
 import { FormCard } from '@/components/FormCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { createActivityWithId, getActivityById, getActivityFormOptions, submitActivity, updateActivity, type ActivityFormInput } from '@/services/activityService';
+import { addEvidence, uploadEvidenceFile, type EvidenceActivityOption, type EvidenceFormInput } from '@/services/evidenceService';
 import { identityDb } from '@/lib/firebase';
 import { getCached } from '@/services/cache';
 
 type UnitTypeOption = { value: string; label: string };
+type DocumentSlot = 'plan' | 'report' | 'attendance';
+
+const imageMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const documentMimeTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+const spreadsheetMimeTypes = ['application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'text/csv'];
+const extensionByMime: Record<string, string[]> = {
+  'image/jpeg': ['jpg', 'jpeg'],
+  'image/png': ['png'],
+  'image/webp': ['webp'],
+  'image/gif': ['gif'],
+  'application/pdf': ['pdf'],
+  'application/msword': ['doc'],
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['docx'],
+  'application/vnd.ms-excel': ['xls'],
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['xlsx'],
+  'text/csv': ['csv'],
+};
+
+function getFileExtension(file: File) {
+  return file.name.split('.').pop()?.toLowerCase() || '';
+}
+
+function isAllowedFile(file: File, mimeTypes: string[]) {
+  const extension = getFileExtension(file);
+  return mimeTypes.some((type) => file.type === type || extensionByMime[type]?.includes(extension));
+}
+
+function formatFileSize(size: number) {
+  if (size >= 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(size / 1024))} KB`;
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  task: (item: T, index: number) => Promise<R>,
+) {
+  const results: R[] = new Array(items.length);
+  let nextIndex = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      results[currentIndex] = await task(items[currentIndex], currentIndex);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
 
 function formatUnitTypeLabel(value: string) {
   if (!value) return '';
@@ -87,6 +138,12 @@ export function AddActivityPage() {
   const [currentStatus, setCurrentStatus] = useState('');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [documentFiles, setDocumentFiles] = useState<Record<DocumentSlot, File | null>>({
+    plan: null,
+    report: null,
+    attendance: null,
+  });
   const isEditing = Boolean(id);
 
   useEffect(() => {
@@ -170,7 +227,132 @@ export function AddActivityPage() {
     if (!form.cap_to_chuc || !form.thoi_gian_bat_dau || !form.thoi_gian_ket_thuc || !form.dia_diem) return 'Vui lòng nhập đầy đủ cấp tổ chức, thời gian và địa điểm.';
     if (!form.muc_tieu || !form.noi_dung || !form.ket_qua) return 'Vui lòng nhập mục tiêu, nội dung và kết quả.';
     if (new Date(form.thoi_gian_bat_dau) > new Date(form.thoi_gian_ket_thuc)) return 'Thời gian bắt đầu phải nhỏ hơn thời gian kết thúc.';
+    if (imageFiles.length > 0 && imageFiles.length < 3) return 'Vui lòng chọn tối thiểu 3 hình ảnh hoặc không chọn hình ảnh.';
+    if (imageFiles.length > 10) return 'Chỉ được chọn tối đa 10 hình ảnh.';
     return '';
+  }
+
+  function getEvidenceActivityOption(activityId: string): EvidenceActivityOption {
+    const year = years.find((item) => item.ma_nam_hoc === form.ma_nam_hoc);
+    const type = activityTypes.find((item) => item.ma_loai === form.ma_loai);
+    const unit = units.find((item) => item.ma_don_vi === form.ma_don_vi);
+    return {
+      id: activityId,
+      name: form.ten_hoat_dong,
+      ma_nam_hoc: form.ma_nam_hoc,
+      ma_loai: form.ma_loai,
+      ten_loai: type?.ten_loai ?? '',
+      ma_don_vi: form.ma_don_vi,
+      ten_don_vi: unit?.ten_don_vi ?? '',
+    };
+  }
+
+  function toEvidenceInput(
+    activityId: string,
+    uploaded: Awaited<ReturnType<typeof uploadEvidenceFile>>,
+    overrides: Partial<EvidenceFormInput>,
+  ): EvidenceFormInput {
+    return {
+      ma_hoat_dong: activityId,
+      ten_minh_chung: overrides.ten_minh_chung || uploaded.ten_file,
+      loai_minh_chung: overrides.loai_minh_chung || uploaded.loai_minh_chung,
+      nguon_luu_tru: uploaded.nguon_luu_tru,
+      duong_dan_file: uploaded.url,
+      duong_dan_thu_muc: '',
+      ten_file: uploaded.ten_file,
+      dinh_dang_file: uploaded.dinh_dang_file,
+      dung_luong_file: uploaded.dung_luong_file,
+      mime_type: uploaded.mime_type,
+      ghi_chu: overrides.ghi_chu || '',
+    };
+  }
+
+  async function uploadSelectedEvidence(activityId: string) {
+    const activityOption = getEvidenceActivityOption(activityId);
+    let firstImageUrl = '';
+
+    if (imageFiles.length > 0) {
+      let completedImages = 0;
+      setMessage(`Đang upload ${imageFiles.length} hình ảnh...`);
+      const uploadedImages = await mapWithConcurrency(imageFiles, 3, async (file, index) => {
+        const uploaded = await uploadEvidenceFile(file, activityId);
+        completedImages += 1;
+        setMessage(`Đã upload ${completedImages}/${imageFiles.length} hình ảnh...`);
+        return { uploaded, index };
+      });
+
+      firstImageUrl = uploadedImages[0]?.uploaded.url || '';
+      setMessage('Đang lưu thông tin hình ảnh minh chứng...');
+      await Promise.all(uploadedImages.map(({ uploaded, index }) => addEvidence(toEvidenceInput(activityId, uploaded, {
+        ten_minh_chung: `Hình ảnh hoạt động ${index + 1}`,
+        loai_minh_chung: 'hinh_anh',
+      }), activityOption)));
+    }
+
+    const documentConfigs: Array<{ slot: DocumentSlot; title: string; type: string }> = [
+      { slot: 'plan', title: 'File kế hoạch hoạt động', type: 'file_ke_hoach' },
+      { slot: 'report', title: 'File báo cáo hoạt động', type: 'file_bao_cao' },
+      { slot: 'attendance', title: 'Danh sách tham gia', type: 'danh_sach_tham_gia' },
+    ];
+
+    for (const config of documentConfigs) {
+      const file = documentFiles[config.slot];
+      if (!file) continue;
+      setMessage(`Đang upload ${config.title.toLowerCase()}...`);
+      const uploaded = await uploadEvidenceFile(file, activityId);
+      await addEvidence(toEvidenceInput(activityId, uploaded, {
+        ten_minh_chung: config.title,
+        loai_minh_chung: config.type,
+      }), activityOption);
+    }
+
+    if (firstImageUrl && user) {
+      await updateActivity(activityId, {
+        anh_dai_dien: firstImageUrl,
+        anh_dai_dien_tu_dong: false,
+        nguon_anh_dai_dien: 'upload_minh_chung',
+      }, user);
+    }
+  }
+
+  function handleImageFiles(files: FileList | null) {
+    const selected = Array.from(files ?? []);
+    if (!selected.length) return;
+    if (selected.length > 10) {
+      setMessage('Chỉ được chọn tối đa 10 hình ảnh.');
+      return;
+    }
+    const invalid = selected.find((file) => !isAllowedFile(file, imageMimeTypes));
+    if (invalid) {
+      setMessage(`File "${invalid.name}" không phải hình ảnh hợp lệ.`);
+      return;
+    }
+    const oversized = selected.find((file) => file.size > 15 * 1024 * 1024);
+    if (oversized) {
+      setMessage(`Ảnh "${oversized.name}" vượt quá 15MB.`);
+      return;
+    }
+    setImageFiles(selected);
+    setMessage('');
+  }
+
+  function handleDocumentFile(slot: DocumentSlot, file?: File) {
+    if (!file) return;
+    const allowed = slot === 'attendance' ? spreadsheetMimeTypes : documentMimeTypes;
+    if (!isAllowedFile(file, allowed)) {
+      setMessage(slot === 'attendance' ? 'Danh sách tham gia chỉ nhận file XLS, XLSX hoặc CSV.' : 'File kế hoạch/báo cáo chỉ nhận PDF, DOC hoặc DOCX.');
+      return;
+    }
+    if (file.size > 25 * 1024 * 1024) {
+      setMessage(`File "${file.name}" vượt quá 25MB.`);
+      return;
+    }
+    setDocumentFiles((current) => ({ ...current, [slot]: file }));
+    setMessage('');
+  }
+
+  function removeDocumentFile(slot: DocumentSlot) {
+    setDocumentFiles((current) => ({ ...current, [slot]: null }));
   }
 
   async function save(status: 'ban_nhap' | 'cho_duyet') {
@@ -190,6 +372,7 @@ export function AddActivityPage() {
           ...(status === 'cho_duyet' ? { ly_do_yeu_cau_bo_sung: '' } : {}),
         };
         await updateActivity(id, updateData, user);
+        await uploadSelectedEvidence(id);
         if (status === 'cho_duyet') {
           await submitActivity(id, user);
         }
@@ -198,6 +381,7 @@ export function AddActivityPage() {
       }
 
       const newId = await createActivityWithId(form, user, status);
+      await uploadSelectedEvidence(newId);
       navigate(`/activities/${newId}`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Không thể lưu hoạt động.');
@@ -442,16 +626,31 @@ export function AddActivityPage() {
           <div className="space-y-6">
             <div>
               <label className="block text-sm text-gray-700 mb-2">
-                Hình ảnh hoạt động
+                Hình ảnh hoạt động <span className="text-xs text-gray-500">(3-10 ảnh nếu chọn upload)</span>
               </label>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors cursor-pointer">
+              <label className="block border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors cursor-pointer">
                 <Upload className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                 <p className="text-sm text-gray-600 mb-1">
                   Kéo thả hình ảnh vào đây hoặc click để chọn
                 </p>
-                <p className="text-xs text-gray-500">PNG, JPG, JPEG (tối đa 10MB)</p>
-                <input type="file" multiple accept="image/*" className="hidden" />
-              </div>
+                <p className="text-xs text-gray-500">JPG, PNG, WebP, GIF (tối đa 15MB/ảnh)</p>
+                <input type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif" onChange={(event) => handleImageFiles(event.target.files)} className="hidden" />
+              </label>
+              {imageFiles.length > 0 && (
+                <div className="mt-3 rounded-lg bg-gray-50 p-3">
+                  <div className="mb-2 flex items-center justify-between text-sm">
+                    <span className="text-gray-700">Đã chọn {imageFiles.length} ảnh</span>
+                    <button type="button" onClick={() => setImageFiles([])} className="text-xs text-red-600 hover:text-red-700">Bỏ chọn</button>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                    {imageFiles.map((file) => (
+                      <div key={`${file.name}-${file.size}`} className="truncate rounded-md bg-white px-3 py-2 text-xs text-gray-600">
+                        {file.name} · {formatFileSize(file.size)}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -459,33 +658,51 @@ export function AddActivityPage() {
                 <label className="block text-sm text-gray-700 mb-2">
                   File kế hoạch (PDF, DOCX)
                 </label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors cursor-pointer">
+                <label className="block border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors cursor-pointer">
                   <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                   <p className="text-xs text-gray-600">Chọn file kế hoạch</p>
-                  <input type="file" accept=".pdf,.doc,.docx" className="hidden" />
-                </div>
+                  <input type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(event) => handleDocumentFile('plan', event.target.files?.[0])} className="hidden" />
+                </label>
+                {documentFiles.plan && (
+                  <div className="mt-2 flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">
+                    <span className="truncate">{documentFiles.plan.name} · {formatFileSize(documentFiles.plan.size)}</span>
+                    <button type="button" onClick={() => removeDocumentFile('plan')} className="ml-3 text-red-600">Bỏ chọn</button>
+                  </div>
+                )}
               </div>
 
               <div>
                 <label className="block text-sm text-gray-700 mb-2">
                   File báo cáo (PDF, DOCX)
                 </label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors cursor-pointer">
+                <label className="block border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors cursor-pointer">
                   <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                   <p className="text-xs text-gray-600">Chọn file báo cáo</p>
-                  <input type="file" accept=".pdf,.doc,.docx" className="hidden" />
-                </div>
+                  <input type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(event) => handleDocumentFile('report', event.target.files?.[0])} className="hidden" />
+                </label>
+                {documentFiles.report && (
+                  <div className="mt-2 flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">
+                    <span className="truncate">{documentFiles.report.name} · {formatFileSize(documentFiles.report.size)}</span>
+                    <button type="button" onClick={() => removeDocumentFile('report')} className="ml-3 text-red-600">Bỏ chọn</button>
+                  </div>
+                )}
               </div>
 
               <div>
                 <label className="block text-sm text-gray-700 mb-2">
                   Danh sách tham gia (Excel)
                 </label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors cursor-pointer">
-                  <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                <label className="block border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors cursor-pointer">
+                  <FileSpreadsheet className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                   <p className="text-xs text-gray-600">Chọn file danh sách</p>
-                  <input type="file" accept=".xlsx,.xls,.csv" className="hidden" />
-                </div>
+                  <input type="file" accept=".xlsx,.xls,.csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" onChange={(event) => handleDocumentFile('attendance', event.target.files?.[0])} className="hidden" />
+                </label>
+                {documentFiles.attendance && (
+                  <div className="mt-2 flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">
+                    <span className="truncate">{documentFiles.attendance.name} · {formatFileSize(documentFiles.attendance.size)}</span>
+                    <button type="button" onClick={() => removeDocumentFile('attendance')} className="ml-3 text-red-600">Bỏ chọn</button>
+                  </div>
+                )}
               </div>
             </div>
 

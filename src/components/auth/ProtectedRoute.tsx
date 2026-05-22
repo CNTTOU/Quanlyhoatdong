@@ -20,7 +20,7 @@ export function ProtectedRoute({
   requiredRoles = [],
   redirectOnDenied = paths.featured,
 }: ProtectedRouteProps) {
-  const { user, loading, authReady, hasPermission, hasAnyPermission, hasRole } =
+  const { user, loading, authReady, authError, hasPermission, hasAnyPermission, hasRole } =
     useAuth();
   const location = useLocation();
   const resolving = isAuthResolving(user, loading, authReady);
@@ -45,6 +45,19 @@ export function ProtectedRoute({
   }
 
   if (!user) {
+    if (authError) {
+      return (
+        <div className="min-h-screen grid place-items-center bg-gray-50 px-4 text-gray-700">
+          <div className="max-w-md rounded-lg border border-red-200 bg-white p-6 shadow-sm">
+            <h1 className="text-lg font-semibold text-red-700">
+              Không thể vào phân hệ quản trị
+            </h1>
+            <p className="mt-2 text-sm leading-6">{authError}</p>
+          </div>
+        </div>
+      );
+    }
+
     if (sessionStorage.getItem(AUTH_LOGOUT_FLAG)) {
       return (
         <div className="min-h-screen grid place-items-center text-gray-600">

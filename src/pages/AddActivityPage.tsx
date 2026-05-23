@@ -743,7 +743,7 @@ export function AddActivityPage() {
                 onChange={(event) =>
                   updateField("doi_tuong_tham_gia", event.target.value)
                 }
-                placeholder="Ví dụ: Sinh viên K66, K67"
+                placeholder="Ví dụ: Sinh viên Khoa Công nghệ Thông tin"
                 className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -892,28 +892,30 @@ export function AddActivityPage() {
 
                       <div className="relative">
                         <input
-                        type="text"
-                        min={0}
-                        step={1000}
-                        value={
-                          row.so_tien ? formatVNDInput(String(row.so_tien)) : ""
-                        }
-                        onChange={(event) =>
-                          updateFundingRow(
-                            index,
-                            "so_tien",
-                            parseVNDToNumber(event.target.value),
-                          )
-                        }
-                        placeholder="3.000.000đ"
-                        className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
+                          type="text"
+                          min={0}
+                          step={1000}
+                          value={
+                            row.so_tien
+                              ? formatVNDInput(String(row.so_tien))
+                              : ""
+                          }
+                          onChange={(event) =>
+                            updateFundingRow(
+                              index,
+                              "so_tien",
+                              parseVNDToNumber(event.target.value),
+                            )
+                          }
+                          placeholder="3.000.000đ"
+                          className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
 
-                      {row.so_tien > 0 && (
-                        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
-                          đ
-                        </span>
-                      )}
+                        {row.so_tien > 0 && (
+                          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
+                            đ
+                          </span>
+                        )}
                       </div>
 
                       <button

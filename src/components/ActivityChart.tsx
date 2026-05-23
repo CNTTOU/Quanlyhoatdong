@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
+
+
 interface ActivityChartProps {
   year: number;
   data?: MonthlyActivity[];

@@ -6,6 +6,8 @@ export type EvidenceFiltersState = {
   ma_nam_hoc: string;
   ma_don_vi: string;
   ma_loai: string;
+  trang_thai: string;
+  nguoi_tai_len: string;
   ngay_tai_len: string;
 };
 
@@ -23,7 +25,7 @@ export function EvidenceFilters({ filters, options, onFilterChange }: EvidenceFi
         <h3 className="text-gray-900">Bộ lọc</h3>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-7">
         <div>
           <label className="block text-sm text-gray-600 mb-2">Loại minh chứng</label>
           <select value={filters.loai_minh_chung} onChange={(event) => onFilterChange({ loai_minh_chung: event.target.value })} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
@@ -70,6 +72,23 @@ export function EvidenceFilters({ filters, options, onFilterChange }: EvidenceFi
         </div>
 
         <div>
+          <label className="block text-sm text-gray-600 mb-2">Trạng thái duyệt</label>
+          <select value={filters.trang_thai} onChange={(event) => onFilterChange({ trang_thai: event.target.value })} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+            <option value="">Tất cả</option>
+            <option value="cho_duyet">Chờ duyệt</option>
+            <option value="da_duyet">Đã duyệt</option>
+            <option value="can_bo_sung">Cần bổ sung</option>
+            <option value="tu_choi">Từ chối</option>
+            <option value="ban_nhap">Bản nháp</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm text-gray-600 mb-2">Người tải lên</label>
+          <input value={filters.nguoi_tai_len} onChange={(event) => onFilterChange({ nguoi_tai_len: event.target.value })} placeholder="Tên hoặc UID" className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+        </div>
+
+        <div>
           <label className="block text-sm text-gray-600 mb-2">Ngày tải lên</label>
           <select value={filters.ngay_tai_len} onChange={(event) => onFilterChange({ ngay_tai_len: event.target.value })} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
             <option value="">Tất cả</option>
@@ -78,6 +97,7 @@ export function EvidenceFilters({ filters, options, onFilterChange }: EvidenceFi
             <option value="month">30 ngày qua</option>
           </select>
         </div>
+
       </div>
     </div>
   );

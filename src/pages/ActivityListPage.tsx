@@ -89,11 +89,16 @@ export function ActivityListPage({ onViewDetail, onEdit, onCreate }: ActivityLis
     const activity = activities.find((item) => item.id === id);
     const confirmed = window.confirm(`Xóa hoạt động ${activity?.name ?? id}?`);
     if (!confirmed) return;
+    const deleteRelatedArchiveData = window.confirm(
+      'Bạn có muốn xóa luôn dữ liệu liên quan bên kho lưu trữ/minh chứng không? Chọn OK để xóa kèm minh chứng và lịch sử duyệt liên quan. Chọn Cancel để chỉ xóa hoạt động.',
+    );
 
     try {
-      await deleteActivity(id, user);
+      await deleteActivity(id, user, deleteRelatedArchiveData);
       setActivities((current) => current.filter((item) => item.id !== id));
-      setMessage('Đã xóa hoạt động thành công.');
+      setMessage(deleteRelatedArchiveData
+        ? 'Đã xóa hoạt động và dữ liệu liên quan bên kho lưu trữ.'
+        : 'Đã xóa hoạt động. Dữ liệu liên quan bên kho lưu trữ được giữ nguyên.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Không thể xóa hoạt động.');
     }

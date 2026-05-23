@@ -25,7 +25,6 @@ interface Activity {
   endDate: string;
   location: string;
   participants: number;
-  objective: string;
   content: string;
   evidences: {
     images: number;
@@ -125,14 +124,6 @@ export function ApprovalDetailPanel({
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Mục tiêu */}
-        <div>
-          <h4 className="text-gray-900 mb-3">Mục tiêu hoạt động</h4>
-          <p className="text-sm text-gray-700 leading-relaxed bg-gray-50 p-4 rounded-lg">
-            {activity.objective}
-          </p>
         </div>
 
         {/* Nội dung */}

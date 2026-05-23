@@ -3,7 +3,6 @@ import {
   MapPin,
   Users,
   Building2,
-  Target,
   BookOpen,
   Award,
   MessageSquare,
@@ -45,7 +44,6 @@ type ActivityDetailData = {
   level: string;
   target: string;
   participants: number;
-  objective: string;
   content: string;
   result: string;
   note: string;
@@ -193,7 +191,6 @@ export function ActivityDetailPage() {
           level,
           target: String(activity.doi_tuong_tham_gia || ''),
           participants: Number(activity.so_luong_tham_gia || 0),
-          objective: String(activity.muc_tieu || ''),
           content: String(activity.noi_dung || ''),
           result: String(activity.ket_qua || ''),
           note: String(activity.ly_do_yeu_cau_bo_sung || ''),
@@ -344,10 +341,6 @@ export function ActivityDetailPage() {
                 </div>
               </div>
             </div>
-          </InfoCard>
-
-          <InfoCard title="Mục tiêu hoạt động" icon={Target}>
-            <p className="text-gray-700 leading-relaxed">{activityData.objective}</p>
           </InfoCard>
 
           <InfoCard title="Nội dung triển khai" icon={BookOpen}>

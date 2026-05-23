@@ -32,7 +32,7 @@ export interface ActivityFormInput {
   dia_diem: string;
   doi_tuong_tham_gia: string;
   so_luong_tham_gia: number;
-  muc_tieu: string;
+  kinh_phi_hoat_dong: Array<{ nguon: string; so_tien: number }>;
   noi_dung: string;
   ket_qua: string;
   link_bai_viet: string;
@@ -116,12 +116,13 @@ export async function updateActivity(maHoatDong: string, data: Partial<HoatDong>
   invalidateCache('activities:');
 }
 
-export async function deleteActivity(maHoatDong: string, user: CurrentUserProfile) {
+export async function deleteActivity(maHoatDong: string, user: CurrentUserProfile, deleteRelatedArchiveData = false) {
   await gatewayRequest('/api/activity', {
     action: 'activities.delete',
-    payload: { id: maHoatDong },
+    payload: { id: maHoatDong, deleteRelatedArchiveData },
   });
   invalidateCache('activities:');
+  if (deleteRelatedArchiveData) invalidateCache('evidences:');
 }
 
 export async function updateActivityFeatured(maHoatDong: string, featured: boolean, user: CurrentUserProfile) {
@@ -202,7 +203,6 @@ export async function getApprovalActivities(user: CurrentUserProfile) {
       endDate: toDateText(activity.thoi_gian_ket_thuc),
       location: String(activity.dia_diem ?? ''),
       participants: Number(activity.so_luong_tham_gia ?? 0),
-      objective: String(activity.muc_tieu ?? ''),
       content: String(activity.noi_dung ?? ''),
       evidences: {
         images: 0,

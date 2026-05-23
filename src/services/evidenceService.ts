@@ -24,6 +24,10 @@ export type EvidenceRow = {
   ma_don_vi: string;
   ma_loai: string;
   loai_minh_chung: string;
+  ma_hoat_dong: string;
+  activityStatus: string;
+  uploader: string;
+  updatedTime: number;
   raw: MinhChung;
 };
 
@@ -82,6 +86,19 @@ type CloudinaryUploadSignature = {
 };
 
 const cloudinarySignatureCache = new Map<string, { expiresAt: number; value: CloudinaryUploadSignature }>();
+const mimeByFileExtension: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+  gif: 'image/gif',
+  pdf: 'application/pdf',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  csv: 'text/csv',
+};
 
 export const defaultEvidenceFormInput: EvidenceFormInput = {
   ma_hoat_dong: '',
@@ -185,8 +202,8 @@ export async function addEvidence(data: EvidenceFormInput, activity?: EvidenceAc
 }
 
 function getUploadFileInfo(file: File) {
-  const mimeType = file.type || '';
   const extension = file.name.split('.').pop()?.toLowerCase() || '';
+  const mimeType = file.type || mimeByFileExtension[extension] || '';
   const format = extension === 'jpeg' ? 'jpg' : extension;
   const isImage = mimeType.startsWith('image/');
   const isSpreadsheet = [
@@ -211,7 +228,7 @@ function getUploadFileInfo(file: File) {
 
 async function uploadFileDirectlyToCloudinary(file: File, activityId: string) {
   const uploadInfo = getUploadFileInfo(file);
-  const cacheKey = `${activityId}:${uploadInfo.resourceType}`;
+  const cacheKey = `${activityId}:${uploadInfo.resourceType}:${uploadInfo.mimeType}:${uploadInfo.format}`;
   const cached = cloudinarySignatureCache.get(cacheKey);
   let signed = cached && cached.expiresAt > Date.now() ? cached.value : null;
   if (!signed) {
@@ -220,6 +237,7 @@ async function uploadFileDirectlyToCloudinary(file: File, activityId: string) {
       payload: {
         activityId,
         resourceType: uploadInfo.resourceType,
+        mimeType: uploadInfo.mimeType,
       },
     });
     cloudinarySignatureCache.set(cacheKey, {
@@ -421,6 +439,10 @@ export async function getEvidenceRowsByCurrentUser(user: CurrentUserProfile) {
         ma_don_vi: String(evidence.ma_don_vi || activity?.ma_don_vi || ''),
         ma_loai: String(evidence.ma_loai || activity?.ma_loai || ''),
         loai_minh_chung: String(evidence.loai_minh_chung || ''),
+        ma_hoat_dong: String(evidence.ma_hoat_dong || activity?.ma_hoat_dong || ''),
+        activityStatus: String(activity?.trang_thai || ''),
+        uploader: String(evidence.ten_nguoi_tai_len || evidence.nguoi_tai_len || ''),
+        updatedTime: toDate(activity?.ngay_cap_nhat ?? evidence.ngay_tai_len)?.getTime() ?? uploadedAt?.getTime() ?? 0,
         raw: evidence,
       };
     });

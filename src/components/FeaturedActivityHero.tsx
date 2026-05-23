@@ -1,4 +1,4 @@
-import { Calendar, Users, MapPin, ArrowRight, Award } from 'lucide-react';
+import { Calendar, Users, MapPin, Award } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
@@ -14,10 +14,9 @@ interface FeaturedActivityHeroProps {
     category: string;
     unit: string;
   };
-  onViewDetail: () => void;
 }
 
-export function FeaturedActivityHero({ activity, onViewDetail }: FeaturedActivityHeroProps) {
+export function FeaturedActivityHero({ activity }: FeaturedActivityHeroProps) {
   const [imageSize, setImageSize] = useState<{ width: number; height: number } | null>(null);
   const imageAspectRatio = imageSize ? `${imageSize.width} / ${imageSize.height}` : '4 / 3';
 
@@ -98,13 +97,6 @@ export function FeaturedActivityHero({ activity, onViewDetail }: FeaturedActivit
             </div>
           </div>
 
-          <button
-            onClick={onViewDetail}
-            className="flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-yellow-400 to-yellow-500 text-yellow-900 rounded-xl hover:from-yellow-500 hover:to-yellow-600 transition-all shadow-2xl shadow-yellow-500/50 w-fit group"
-          >
-            <span className="font-medium">Xem chi tiết</span>
-            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-          </button>
         </div>
 
         <div className="hidden lg:flex items-center justify-center">

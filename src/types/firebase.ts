@@ -109,7 +109,7 @@ export interface HoatDong {
   dia_diem: string;
   doi_tuong_tham_gia: string;
   so_luong_tham_gia: number;
-  muc_tieu: string;
+  kinh_phi_hoat_dong?: Array<{ nguon: string; so_tien: number }>;
   noi_dung: string;
   ket_qua: string;
   link_bai_viet: string;

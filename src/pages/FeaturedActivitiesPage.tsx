@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Award, Filter } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { FeaturedActivityHero } from '@/components/FeaturedActivityHero';
 import { FeaturedActivityCard } from '@/components/FeaturedActivityCard';
 import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
@@ -33,7 +32,6 @@ export function FeaturedActivitiesPage() {
   const [activityTypes, setActivityTypes] = useState<Array<{ value: string; label: string }>>([]);
   const [selectedYear, setSelectedYear] = useState('');
   const [selectedType, setSelectedType] = useState('');
-  const navigate = useNavigate();
 
   useEffect(() => {
     setIsLoading(true);
@@ -49,7 +47,7 @@ export function FeaturedActivitiesPage() {
           return {
             id: item.id,
             title: String(itemData.ten_hoat_dong ?? ''),
-            description: String(itemData.noi_dung ?? itemData.muc_tieu ?? ''),
+            description: String(itemData.noi_dung ?? ''),
             image: String(itemData.anh_dai_dien ?? ''),
             date: toDateText(itemData.thoi_gian_bat_dau),
             location: String(itemData.dia_diem ?? ''),
@@ -97,7 +95,7 @@ export function FeaturedActivitiesPage() {
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Hero Featured Activity */}
         {data.heroActivity && (
-          <FeaturedActivityHero activity={data.heroActivity} onViewDetail={() => navigate(`/activities/${data.heroActivity?.id}`)} />
+          <FeaturedActivityHero activity={data.heroActivity} />
         )}
 
         {/* Filters */}
@@ -145,7 +143,6 @@ export function FeaturedActivitiesPage() {
             <FeaturedActivityCard
               key={activity.id}
               activity={activity}
-              onViewDetail={(id) => navigate(`/activities/${id}`)}
             />
           ))}
         </div>

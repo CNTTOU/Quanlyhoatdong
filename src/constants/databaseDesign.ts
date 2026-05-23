@@ -137,7 +137,7 @@ export const DATABASE_COLLECTION_DESIGNS: DatabaseCollectionDesign[] = [
       f('dia_diem', 'string', 'Địa điểm tổ chức', 'Tùy chọn'),
       f('doi_tuong_tham_gia', 'string', 'Đối tượng tham gia', 'Tùy chọn'),
       f('so_luong_tham_gia', 'number', 'Tổng số lượt/sinh viên tham gia', 'Mặc định 0'),
-      f('muc_tieu', 'string', 'Mục tiêu hoạt động', 'Tùy chọn'),
+      f('kinh_phi_hoat_dong', 'array<object>', 'Danh sách nguồn kinh phí và số tiền', 'Tùy chọn'),
       f('noi_dung', 'string', 'Nội dung triển khai', 'Tùy chọn'),
       f('ket_qua', 'string', 'Kết quả đạt được', 'Tùy chọn'),
       f('link_bai_viet', 'string', 'Link bài truyền thông Facebook/web', 'Tùy chọn'),
@@ -340,7 +340,7 @@ export const DEFAULT_REPORT_TEMPLATES = [
     mo_ta: 'Mẫu báo cáo kết quả cho một hoặc nhiều hoạt động đã duyệt.',
     cau_truc: [
       { thu_tu: 1, tieu_de: 'Thông tin chung', kieu: 'section' },
-      { thu_tu: 2, tieu_de: 'Mục tiêu và nội dung triển khai', kieu: 'section' },
+      { thu_tu: 2, tieu_de: 'Nội dung triển khai', kieu: 'section' },
       { thu_tu: 3, tieu_de: 'Kết quả đạt được', kieu: 'section' },
       { thu_tu: 4, tieu_de: 'Minh chứng kèm theo', kieu: 'section' },
     ],

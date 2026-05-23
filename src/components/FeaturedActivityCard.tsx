@@ -1,4 +1,4 @@
-import { Calendar, Building2, Award, ArrowRight } from 'lucide-react';
+import { Calendar, Building2, Award } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
 interface FeaturedActivityCardProps {
@@ -10,7 +10,6 @@ interface FeaturedActivityCardProps {
     unit: string;
     image: string;
   };
-  onViewDetail: (id: string | number) => void;
 }
 
 const categoryColors = {
@@ -22,12 +21,9 @@ const categoryColors = {
   'Văn hóa - Thể thao': 'bg-pink-100 text-pink-700',
 };
 
-export function FeaturedActivityCard({ activity, onViewDetail }: FeaturedActivityCardProps) {
+export function FeaturedActivityCard({ activity }: FeaturedActivityCardProps) {
   return (
-    <div
-      onClick={() => onViewDetail(activity.id)}
-      className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-2xl transition-all duration-300 cursor-pointer group border border-gray-100"
-    >
+    <div className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-2xl transition-all duration-300 group border border-gray-100">
       {/* Image */}
       <div className="relative h-48 overflow-hidden">
         <ImageWithFallback
@@ -74,10 +70,6 @@ export function FeaturedActivityCard({ activity, onViewDetail }: FeaturedActivit
           </div>
         </div>
 
-        <button className="flex items-center gap-2 text-blue-600 hover:text-blue-700 text-sm group-hover:gap-3 transition-all">
-          <span>Xem chi tiết</span>
-          <ArrowRight className="w-4 h-4" />
-        </button>
       </div>
     </div>
   );
